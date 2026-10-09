@@ -1,0 +1,86 @@
+TIBIA SCARAB EYE — overlays com a imagem já capturada pelo OBS
+
+COMO FUNCIONA
+O programa mostra recortes do cliente do Tibia como pequenas janelas sobre o
+jogo e envia ao OBS somente a geometria deles (posição, tamanho, seleção e
+opacidade). O script obs/TibiaScarabEye.lua lê a transformação real da Captura
+de jogo (posição, escala, caixa delimitadora, recorte) e cria as overlays como
+grupos "Tibia Scarab Eye xxxxxx" no topo da mesma cena, reaproveitando a imagem
+que o OBS já captura. Não há alteração no cliente, leitura de memória ou
+injeção.
+
+INSTALAÇÃO — UMA VEZ
+1. Extraia o pacote em uma pasta fixa e abra TibiaScarabEye.exe. Selecione a
+   janela do Tibia.
+2. No OBS, confirme que sua fonte de Captura de jogo já mostra o Tibia, direto
+   na cena (não dentro de um grupo). Ela fornece a imagem de todas as overlays.
+3. OBS > Ferramentas > Scripts: clique em + e escolha obs/TibiaScarabEye.lua.
+   Mantenha o script na pasta fixa para o OBS carregá-lo nas próximas
+   aberturas. O Lua já vem com o OBS.
+4. No script, deixe "Automático" ou escolha sua Captura de jogo.
+5. No programa, crie as áreas, clique em Sincronizar com OBS e depois em
+   Travar para jogar.
+
+USO DIÁRIO
+- Abra o programa, selecione o Tibia, abra seu layout e sincronize.
+- Arrastar, redimensionar, editar a seleção e mudar a opacidade atualiza o
+  grupo no OBS em cerca de 100 ms. O vídeo acompanha a taxa da Captura de jogo.
+- Espaços fora dos recortes são transparentes. As bordas têm o estilo Tibia.
+- Ctrl + Shift + F8 alterna edição/jogo. Ctrl + Shift + F9 mostra/oculta as
+  overlays na tela e no OBS. Os botões continuam disponíveis.
+- Parar a sincronização ou fechar o programa remove os grupos em até 5
+  segundos. Se o programa encerrar inesperadamente, a imagem some no mesmo
+  prazo.
+- Se a lista de capturas do script estiver vazia, crie a fonte de Captura de
+  jogo, feche as propriedades do script e abra-as novamente.
+
+MODO MANUAL (padrão)
+Na primeira vez, cada overlay aparece onde o programa a posicionou. Depois,
+arraste e redimensione os grupos "Tibia Scarab Eye xxxxxx" no preview do OBS
+até ficarem como no jogo. A posição e a escala ficam salvas em
+%LOCALAPPDATA%\TibiaScarabEye\obs-manual.txt e valem mesmo se você mover a área
+no programa ou reabrir o OBS. Mudar o tamanho do recorte no programa atualiza
+o conteúdo e mantém a posição do OBS. "Redefinir posições manuais" apaga tudo.
+Desmarque "Modo manual" para a posição vir sempre do programa.
+
+CRIAR E ORGANIZAR
+Adicionar área: seleção livre ou quadrada, zoom, pan e medidas exatas.
+Editar área: altera o recorte sem precisar removê-lo; também por duplo clique.
+Arraste o conteúdo para mover e as bordas para redimensionar.
+Definir mapa: delimita a grade; o campo numérico controla a célula em pixels.
+Tamanho e opacidade: ajustes da área selecionada.
+Salvar layout / Abrir layout: arquivos JSON.
+
+DIAGNÓSTICO
+Marque "Mostrar guia da área do jogo" para ver um contorno ciano da área que
+o script entende como o jogo. "Ajuste fino X/Y" desloca todas as overlays em
+pixels do canvas, caso queira compensar algo. O log do OBS (Ajuda > Arquivos
+de log) traz linhas "Tibia Scarab Eye: ..." com tamanhos e escala.
+Antes de diagnosticar um deslocamento, confira se o "build dd/MM HH:mm" no
+título da janela é o do executável que você acabou de compilar.
+
+DETALHES E LIMITES
+O arquivo de sincronização fica em:
+%LOCALAPPDATA%\TibiaScarabEye\obs-layout.json
+Ele é gerado automaticamente. Não selecione seu layout JSON salvo nas
+propriedades do OBS: os formatos têm finalidades distintas. Use uma instância
+do programa por vez para publicar o layout.
+
+A imagem do grupo é produzida dentro do OBS, a partir da captura já
+funcional. Se a Captura de jogo estiver preta ou sem sinal, corrija a origem
+primeiro: a integração não contorna bloqueios de captura.
+
+A sincronização considera a área interna da janela do Tibia. Partes de uma
+seleção fora dela não existem na Captura de jogo e são cortadas. Se a fonte
+tiver filtros que mudam seu enquadramento, a seleção pode divergir. Confira o
+alinhamento após alterar resolução, DPI ou filtros. A grade de edição não é
+enviada ao OBS.
+
+COMPILAR
+Windows x64 / .NET 8. Veja o README.md: dotnet build TibiaScarabEye.sln -c
+Release. O pacote deve manter a pasta obs/ junto dos arquivos do programa.
+
+Referências:
+https://docs.obsproject.com/scripting
+https://docs.obsproject.com/reference-scenes
+https://docs.obsproject.com/reference-sources
