@@ -21,7 +21,7 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
   com um retângulo livre ou um quadrado, com zoom, deslocamento e medidas
   exatas em pixels.
 - **Posiciona as overlays antes de elas aparecerem.** O planejador mostra o
-  jogo ao vivo dentro do programa, com a grade por cima. Arraste
+  jogo ao vivo dentro do programa. Arraste
   cada área até o lugar certo; ela se encaixa na grade e só aparece na tela
   quando você trava para jogar.
 - **Ajusta cada overlay.** Edite a seleção depois, sem precisar remover a
@@ -33,8 +33,8 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
 - **Atalhos globais** que funcionam mesmo com o painel minimizado:
   `Ctrl + Shift + F8` alterna edição e jogo, `Ctrl + Shift + F9` mostra ou
   oculta as overlays na tela e no OBS.
-- **Grade densa** (células de 8 px). O planejador a desenha sobre a janela do
-  jogo e prende as áreas nela.
+- **Encaixe preciso.** Ao arrastar, as áreas se prendem a uma grade invisível
+  de 8 px sobre a janela do jogo; a grade não é desenhada.
 - **Salva e abre layouts** em arquivos JSON.
 - **Sincroniza com o OBS.** As overlays aparecem na cena, acima da captura do
   jogo, e acompanham o que você muda no programa em cerca de 100 ms.

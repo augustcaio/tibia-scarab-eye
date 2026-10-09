@@ -7,7 +7,7 @@ using TibiaScarabEye.Layouts;
 
 namespace TibiaScarabEye.UI;
 
-// Planejador: mostra a janela do jogo ao vivo, com a grade por cima, e deixa o usuário posicionar as overlays
+// Planejador: mostra a janela do jogo ao vivo, com encaixe numa grade invisível, e deixa o usuário posicionar as overlays
 // antes de elas aparecerem na tela. Trabalha em coordenadas da janela de origem e só grava nas overlays ao aplicar.
 internal sealed class Planner : Form {
     sealed class Item {
@@ -15,7 +15,7 @@ internal sealed class Planner : Form {
         public Rectangle Original, Rect;
         public Thumbnail Thumb;
     }
-    // Grade densa e fixa: 8 px de célula deixam posicionar com precisão sem um controle a mais na janela principal.
+    // Encaixe denso e fixo, sem desenhar a grade: 8 px de célula posicionam com precisão sem poluir a prévia nem pedir um controle a mais.
     internal const int CellPixels=8;
     readonly IntPtr source;
     readonly IList<Overlay> overlays;
@@ -34,7 +34,7 @@ internal sealed class Planner : Form {
         Theme.Apply(this); Text="Posicionar áreas • Tibia Scarab Eye";
         Size=new Size(1060,740); MinimumSize=new Size(760,480); StartPosition=FormStartPosition.CenterParent;
         Controls.Add(Theme.Label("Arraste as áreas para posicioná-las no jogo. Elas só aparecem na tela no modo jogo.",20,16,1000,26,false));
-        Controls.Add(Theme.Label("Grade de "+CellPixels+" px sobre a janela do jogo. Segure Alt para mover sem prender na grade.",20,44,1000,24,true));
+        Controls.Add(Theme.Label("As áreas se encaixam em uma grade invisível de "+CellPixels+" px. Segure Alt para mover sem encaixe.",20,44,1000,24,true));
         apply=Theme.Button("Aplicar posições",20,0,190,true); apply.Anchor=AnchorStyles.Bottom|AnchorStyles.Left; apply.Click+=delegate { Apply(); }; Controls.Add(apply);
         cancel=Theme.Button("Cancelar",224,0,120,false); cancel.Anchor=apply.Anchor; cancel.Click+=delegate { DialogResult=DialogResult.Cancel; }; Controls.Add(cancel); CancelButton=cancel;
         shortcuts=Theme.Label("Setas: mover uma célula • Shift + setas: mover 1 px",360,0,600,26,true); shortcuts.Anchor=apply.Anchor; Controls.Add(shortcuts);
@@ -87,7 +87,7 @@ internal sealed class Planner : Form {
     void Mark() {
         var marks=new PlanAdorner.Mark[items.Count];
         for(int i=0;i<marks.Length;i++) marks[i]=new PlanAdorner.Mark { Rect=ToView(items[i].Rect), Selected=items[i]==selected };
-        adorner.Update(preview,CellPixels*ViewScale,marks);
+        adorner.Update(preview,marks);
     }
     void PositionAdorner() { if(IsHandleCreated && !adorner.IsDisposed) adorner.Bounds=RectangleToScreen(ClientRectangle); }
 

@@ -48,11 +48,11 @@ CRIAR E ORGANIZAR
 Adicionar área: seleção livre ou quadrada, zoom, pan e medidas exatas.
 Editar área: altera o recorte sem precisar removê-lo; também por duplo clique.
 Posicionar áreas: abre o planejador, uma janela do programa que mostra o jogo
-ao vivo com a grade por cima. Arraste cada área; ela se encaixa na
+ao vivo. Arraste cada área; ela se encaixa na
 grade (segure Alt para mover sem grade). Setas movem uma célula e Shift + setas
 movem 1 pixel. Aplicar posições grava os lugares; Cancelar descarta. Nada
 aparece sobre o jogo até você clicar em Travar para jogar.
-A grade tem células de 8 pixels e cobre a janela do jogo.
+O encaixe usa uma grade invisível de 8 pixels sobre a janela do jogo.
 Tamanho e opacidade: ajustes da área selecionada.
 Salvar layout / Abrir layout: arquivos JSON.
 
@@ -79,8 +79,7 @@ primeiro: a integração não contorna bloqueios de captura.
 A sincronização considera a área interna da janela do Tibia. Partes de uma
 seleção fora dela não existem na Captura de jogo e são cortadas. Se a fonte
 tiver filtros que mudam seu enquadramento, a seleção pode divergir. Confira o
-alinhamento após alterar resolução, DPI ou filtros. A grade de edição não é
-enviada ao OBS.
+alinhamento após alterar resolução, DPI ou filtros.
 
 COMPILAR
 Windows x64 / .NET 8. Veja o README.md: dotnet build TibiaScarabEye.sln -c
