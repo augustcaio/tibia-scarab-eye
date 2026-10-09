@@ -54,7 +54,7 @@ internal abstract class FramelessForm : Form {
         base.OnSizeChanged(e);
         if(ClientSize.Width<=0 || ClientSize.Height<=0) return;
         int y=Px(PanelTop)+Px(8), gap=Px(4);
-        close.SetBounds(ClientSize.Width-Px(Edge)-Px(8)-Px(CaptionButtonWidth),y,Px(CaptionButtonWidth),Px(CaptionButtonHeight));
+        close.SetBounds(ClientSize.Width-Px(Edge)-Px(16)-Px(CaptionButtonWidth),y,Px(CaptionButtonWidth),Px(CaptionButtonHeight));
         minimize.SetBounds(close.Left-gap-Px(CaptionButtonWidth),y,Px(CaptionButtonWidth),Px(CaptionButtonHeight));
         UpdateShape();
     }
@@ -89,7 +89,7 @@ internal abstract class FramelessForm : Form {
         base.OnPaint(e);
         Theme.GoldFrame(e.Graphics,PanelBounds,Px(2));
         if(scaledLogo!=null) e.Graphics.DrawImageUnscaled(scaledLogo,LogoBounds.Location);
-        var logo=LogoBounds; int left=Px(Edge)+Px(10), top=Px(PanelTop)+Px(8), width=logo.Left-left-Px(8);
+        var logo=LogoBounds; int left=Px(Edge)+Px(16), top=Px(PanelTop)+Px(8), width=logo.Left-left-Px(8);
         if(width<=0) return;
         using(var title=new Font("Tahoma",11,FontStyle.Bold)) using(var caption=new Font("Tahoma",8)) {
             TextRenderer.DrawText(e.Graphics,BandTitle,title,new Rectangle(left,top,width,title.Height+Px(2)),Theme.Gold,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);

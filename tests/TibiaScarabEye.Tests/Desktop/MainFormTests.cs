@@ -23,6 +23,11 @@ public class MainFormTests
         windows.Items.Add(new WindowItem { Handle = main.Handle, Title = "Tibia - Personagem" });
         windows.SelectedIndex = 0;
 
+        // Os atalhos globais podem estar ocupados por outra instancia aberta; fixa o estado normal para a imagem da documentacao.
+        DesktopHarness.SetField(main, "hotkey", true);
+        DesktopHarness.SetField(main, "visibilityHotkey", true);
+        DesktopHarness.Call(main, "UpdateStatus");
+
         using var bitmap = DesktopHarness.RenderShaped(main);
         DesktopHarness.SaveArtifact(bitmap, "interface-preview.png");
         main.Close();

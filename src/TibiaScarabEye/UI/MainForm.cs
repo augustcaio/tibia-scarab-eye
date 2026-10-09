@@ -28,7 +28,7 @@ internal sealed class MainForm : FramelessForm {
     string sourceTitle="";
     bool locked, binding, dirty, hotkey, visibilityHotkey, overlaysHidden;
     readonly ToolTip tips=new ToolTip();
-    const int BodyRow=1, MinClientWidth=560;
+    const int BodyRow=1, MinClientWidth=580;
     readonly TableLayoutPanel layout, body, side;
     public MainForm() {
         Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
@@ -79,10 +79,10 @@ internal sealed class MainForm : FramelessForm {
 
         var root=Table(Columns(PercentColumn(100)),sourceRow,main,detail,obs,actions,status);
         root.RowStyles[BodyRow]=new RowStyle(SizeType.Percent,100); layout=root;
-        root.AutoSize=false; root.Padding=new Padding(8,0,8,0);
+        root.AutoSize=false; root.Padding=new Padding(16,0,16,12);
         foreach(Control c in new Control[]{sourceRow,main,detail,obs,actions}) c.Margin=new Padding(0,0,0,8);
         Controls.Add(root);
-        ClientSize=new Size(640,498); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
+        ClientSize=new Size(660,512); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { EditArea(); };
