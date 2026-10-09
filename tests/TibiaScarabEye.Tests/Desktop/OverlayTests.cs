@@ -103,20 +103,10 @@ public class OverlayTests
             IntPtr handle = overlay.Handle;
             Point position = overlay.Location;
 
-            using (var editor = new Selector(source.Handle, editable))
-            {
-                ShowOffscreen(editor);
-                using (var dimensions = new Thumbnail(editor.Handle, source.Handle))
-                    Assert.Equal(editable.Crop(dimensions.SourceSize), Field<Rectangle>(editor, "selection"));
-                Field<NumericUpDown>(editor, "exactSide").Value = 160;
-                Field<NumericUpDown>(editor, "exactHeight").Value = 40;
-                Field<ComboBox>(editor, "name").Text = "Edited region";
-                Assert.True(editable.Name == "Before edit" && editable.W == .2, "Editor changed original before save");
-                Click(editor, "Salvar alterações");
-                Assert.NotNull(editor.Result);
-                overlay.UpdateRegion(editor.Result);
-                editor.Close();
-            }
+            // Mesma edicao que o editor de areas faz: novo recorte de 160x40 pixels da origem e novo nome.
+            Size sourceSize;
+            using (var dimensions = new Thumbnail(overlay.Handle, source.Handle)) sourceSize = dimensions.SourceSize;
+            overlay.UpdateRegion(new RegionSpec { Name = "Edited region", X = .1, Y = .1, W = 160d / sourceSize.Width, H = 40d / sourceSize.Height, Width = 160, Height = 40, Opacity = 80 });
             Assert.True(editable.Name == "Edited region" && editable.ObsId == id && overlay.Handle == handle && overlay.Text == title && overlay.Location == position, "Editing lost position, HWND or OBS identity");
 
             var editedLayout = new Layout();

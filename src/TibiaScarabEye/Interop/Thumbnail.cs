@@ -17,5 +17,10 @@ internal sealed class Thumbnail : IDisposable {
         var p=new Native.Props { Flags=31, Source=new Native.Rect(source), Destination=new Native.Rect(destination), Opacity=255, Visible=true, ClientOnly=false };
         Marshal.ThrowExceptionForHR(Native.DwmUpdateThumbnailProperties(handle,ref p));
     }
+    // Esconde a miniatura (por exemplo, quando ela sai da área visível).
+    public void Hide() {
+        var p=new Native.Props { Flags=8, Visible=false };
+        Marshal.ThrowExceptionForHR(Native.DwmUpdateThumbnailProperties(handle,ref p));
+    }
     public void Dispose() { if (handle!=IntPtr.Zero) { Native.DwmUnregisterThumbnail(handle); handle=IntPtr.Zero; } }
 }

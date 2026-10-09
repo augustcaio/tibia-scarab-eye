@@ -11,6 +11,22 @@ internal static class Geometry {
         int w=Math.Max(1,(int)(source.Width*scale)), h=Math.Max(1,(int)(source.Height*scale));
         return new Rectangle(area.Left+(area.Width-w)/2,area.Top+(area.Height-h)/2,w,h);
     }
+    // Quadrado com origem em 'anchor' na direção de 'end', limitado a uma área que começa em (0,0). Vazio se não houve arrasto.
+    public static Rectangle Square(Point anchor,Point end,Size size) {
+        int dx=end.X-anchor.X,dy=end.Y-anchor.Y;
+        int side=Math.Max(Math.Abs(dx),Math.Abs(dy));
+        side=Math.Min(side,Math.Min(dx<0?anchor.X:size.Width-anchor.X,dy<0?anchor.Y:size.Height-anchor.Y));
+        return side<=0?Rectangle.Empty:new Rectangle(dx<0?anchor.X-side:anchor.X,dy<0?anchor.Y-side:anchor.Y,side,side);
+    }
+    // Seleção em blocos de slots (34, 70, 106 px...): cada lado pula para o tamanho de slots mais próximo que cabe até a borda.
+    public static Rectangle SlotBlock(Point anchor,Point end,Size size,bool square) {
+        int dx=end.X-anchor.X, dy=end.Y-anchor.Y;
+        if(dx==0 && dy==0) return Rectangle.Empty;
+        int roomX=dx<0?anchor.X:size.Width-anchor.X, roomY=dy<0?anchor.Y:size.Height-anchor.Y, w, h;
+        if(square) w=h=SnapToSlots(Math.Max(Math.Abs(dx),Math.Abs(dy)),Math.Min(roomX,roomY));
+        else { w=SnapToSlots(Math.Abs(dx),roomX); h=SnapToSlots(Math.Abs(dy),roomY); }
+        return new Rectangle(dx<0?anchor.X-w:anchor.X,dy<0?anchor.Y-h:anchor.Y,w,h);
+    }
     // Slot do Tibia (action bar, equipamento, container): 34 px, com passo de 36 px entre slots da action bar.
     public const int SlotSize=34, SlotPitch=36;
     // Tamanhos de blocos de slots vizinhos da action bar: 34, 70, 106 px... O terceiro, 106, é a largura do minimapa.

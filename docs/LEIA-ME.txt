@@ -45,18 +45,24 @@ o conteúdo e mantém a posição do OBS. "Redefinir posições manuais" apaga t
 Desmarque "Modo manual" para a posição vir sempre do programa.
 
 CRIAR E ORGANIZAR
-Adicionar área: seleção livre ou quadrada, zoom, pan e medidas exatas. Com
-"Encaixar em slots do Tibia" ligado (padrão), cada lado da seleção pula para
-34, 70, 106 px... (slots vizinhos da action bar: 34 px por slot, passo de 36 px;
-106 px é a largura do minimapa). Desligue para escolher qualquer tamanho; os
-campos de medidas exatas aceitam qualquer valor.
-Editar área: altera o recorte sem precisar removê-lo; também por duplo clique.
-Posicionar áreas: abre o planejador, uma janela do programa que mostra o jogo
-ao vivo. Arraste cada área; ela se encaixa na
-grade (segure Alt para mover sem grade). Setas movem uma célula e Shift + setas
-movem 1 pixel. Aplicar posições grava os lugares; Cancelar descarta. Nada
-aparece sobre o jogo até você clicar em Travar para jogar.
-O encaixe usa uma grade invisível de 8 pixels sobre a janela do jogo.
+Editor de áreas: abre uma janela do programa com o jogo ao vivo; criar e
+posicionar acontecem ali, e as mudanças valem na hora (não há aplicar nem
+cancelar). Também abre com duplo clique na lista.
+- Arraste no vazio para criar uma área. O retângulo desenhado é o recorte e a
+  overlay nasce ao lado dele, no tamanho real do recorte.
+- Arraste uma área para posicioná-la. Ela se prende a uma grade invisível de 8
+  pixels (segure Alt para mover sem grade). Setas movem uma célula; Shift +
+  setas, 1 pixel. Alt + setas movem o recorte de origem 1 pixel (Shift: 10).
+- Com "Encaixar em slots do Tibia" ligado (padrão), cada lado do recorte pula
+  para 34, 70, 106 px... (slots vizinhos da action bar: 34 px por slot, passo de
+  36 px; 106 px é a largura do minimapa). "Manter quadrado" combina com isso.
+  Desligue para escolher qualquer tamanho; os campos Recorte aceitam qualquer
+  valor.
+- Roda do mouse: zoom. Segure Espaço (como no Photoshop), o botão do meio ou o
+  direito e arraste para mover a visão.
+- O contorno dourado é a overlay selecionada; o tracejado ciano é o recorte
+  de origem dela. Delete ou "Remover área" apaga; o campo Nome renomeia.
+Nada aparece sobre o jogo até você clicar em Travar para jogar.
 Tamanho e opacidade: ajustes da área selecionada.
 Salvar layout / Abrir layout: arquivos JSON.
 

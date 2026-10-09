@@ -65,4 +65,26 @@ public class GeometryTests
     {
         Assert.Equal(new Rectangle(0, 0, 900, 700), Geometry.ClampInside(new Rectangle(40, 40, 900, 700), new Size(640, 480)));
     }
+
+    [Fact]
+    public void SlotBlock_SnapsEachSideAndGrowsInTheDragDirection()
+    {
+        var source = new Size(640, 480);
+        Assert.Equal(new Rectangle(100, 100, 142, 70), Geometry.SlotBlock(new Point(100, 100), new Point(250, 160), source, false));
+        Assert.Equal(new Rectangle(158, 266, 142, 34), Geometry.SlotBlock(new Point(300, 300), new Point(150, 290), source, false));
+    }
+
+    [Fact]
+    public void SlotBlock_SquareUsesTheLongestSide()
+    {
+        Assert.Equal(new Rectangle(100, 100, 142, 142), Geometry.SlotBlock(new Point(100, 100), new Point(250, 130), new Size(640, 480), true));
+    }
+
+    [Fact]
+    public void SlotBlock_IsEmptyWithoutDragAndNeverLeavesTheSource()
+    {
+        var source = new Size(640, 480);
+        Assert.True(Geometry.SlotBlock(new Point(20, 20), new Point(20, 20), source, false).IsEmpty);
+        Assert.Equal(new Rectangle(630, 470, 10, 10), Geometry.SlotBlock(new Point(630, 470), new Point(700, 600), source, false));
+    }
 }

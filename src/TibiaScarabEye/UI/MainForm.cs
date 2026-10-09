@@ -15,7 +15,7 @@ internal sealed class MainForm : FramelessForm {
     readonly TrackBar opacity=new TrackBar();
     readonly Label status, detail, opacityLabel;
     readonly Button mode;
-    readonly Button edit, visibility;
+    readonly Button visibility;
     readonly Button obsCapture;
     readonly Label obsStatus;
     ObsBridge obsOutput;
@@ -41,15 +41,13 @@ internal sealed class MainForm : FramelessForm {
         var refresh=Theme.Button("Atualizar",false); refresh.Anchor=AnchorStyles.Left|AnchorStyles.Right; refresh.Width=90; refresh.Click+=delegate { RefreshWindows(); };
         var sourceRow=Table(Columns(AutoColumn(),PercentColumn(100),AutoColumn()),Theme.Caption("Janela do Tibia"),windows,refresh);
 
-        var add=Theme.Button("Adicionar",true); edit=Theme.Button("Editar",false); var remove=Theme.Button("Remover",false);
-        foreach(var b in new[]{add,edit,remove}) { b.Anchor=AnchorStyles.Left|AnchorStyles.Right; b.Margin=new Padding(0,0,4,6); }
+        var editor=Theme.Button("Editor de áreas",true); var remove=Theme.Button("Remover",false);
+        foreach(var b in new[]{editor,remove}) { b.Anchor=AnchorStyles.Left|AnchorStyles.Right; b.Margin=new Padding(0,0,4,6); }
         remove.Margin=new Padding(0,0,0,6);
-        add.Click+=delegate { AddArea(); }; edit.Click+=delegate { EditArea(); }; remove.Click+=delegate { RemoveArea(); };
-        tips.SetToolTip(add,"Adicionar área"); tips.SetToolTip(edit,"Editar área"); tips.SetToolTip(remove,"Remover área");
-        var tools=Table(Columns(PercentColumn(34),PercentColumn(33),PercentColumn(33)),add,edit,remove);
-        var position=Theme.Button("Posicionar áreas",false); position.Anchor=AnchorStyles.Left|AnchorStyles.Right; position.Margin=new Padding(0,6,0,0); position.Click+=delegate { PositionAreas(); };
-        tips.SetToolTip(position,"Abre o planejador: posicione as áreas sobre a prévia do jogo antes de elas aparecerem na tela");
-        var left=listColumn=Table(Columns(PercentColumn(100)),tools,areas,position);
+        editor.Click+=delegate { OpenEditor(); }; remove.Click+=delegate { RemoveArea(); };
+        tips.SetToolTip(editor,"Cria e posiciona as áreas sobre a prévia do jogo, antes de elas aparecerem na tela"); tips.SetToolTip(remove,"Remover a área selecionada");
+        var tools=Table(Columns(PercentColumn(70),PercentColumn(30)),editor,remove);
+        var left=listColumn=Table(Columns(PercentColumn(100)),tools,areas);
         left.RowStyles[1]=new RowStyle(SizeType.Percent,100); left.Margin=new Padding(0,0,12,0);
 
         opacityLabel=Theme.Caption("Opacidade: 100%"); opacityLabel.MinimumSize=new Size(TextRenderer.MeasureText("Opacidade: 100%",Font).Width+2,0);
@@ -59,7 +57,7 @@ internal sealed class MainForm : FramelessForm {
         var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
         main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
 
-        detail=Theme.Note("Adicione uma área e posicione no planejador. Ela aparece na tela quando você travar para jogar.");
+        detail=Theme.Note("Abra o editor para criar e posicionar áreas. Elas aparecem na tela quando você travar para jogar.");
         tips.SetToolTip(obsCapture,"A Captura de jogo do Tibia fica direto na cena do OBS; as overlays viram grupos. Usa a imagem já capturada, não recaptura a tela.");
         obsStatus=Theme.Note("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.");
         var obs=obsStatus;
@@ -80,7 +78,7 @@ internal sealed class MainForm : FramelessForm {
         ClientSize=new Size(660,512); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
-        areas.DoubleClick+=delegate { EditArea(); };
+        areas.DoubleClick+=delegate { OpenEditor(); };
         zoom.SelectedIndexChanged+=delegate { if(binding || Selected==null || zoom.SelectedIndex<0) return; Safe(delegate { Selected.Zoom(new double[]{.5,.75,1,1.25,1.5,2,3}[zoom.SelectedIndex]); dirty=true; }); };
         opacity.ValueChanged+=delegate { opacityLabel.Text="Opacidade: "+opacity.Value+"%"; if(!binding && Selected!=null) { Selected.Spec.Opacity=opacity.Value; Selected.ApplyStyle(); dirty=true; } };
         windows.SelectedIndexChanged+=delegate {
@@ -161,58 +159,46 @@ internal sealed class MainForm : FramelessForm {
         if(Native.IsIconic(source)) { MessageBox.Show(this,"Restaure a janela de origem antes de continuar."); return false; }
         return true;
     }
-    void AddArea() {
+    // Criar e posicionar acontecem no mesmo lugar: o editor mostra o jogo ao vivo e age sobre as overlays na hora.
+    void OpenEditor() {
         if(!Ready()) return;
-        if(overlays.Count>=30) { MessageBox.Show(this,"O protótipo permite até 30 áreas por layout."); return; }
         if(locked) ToggleMode();
-        bool added=false;
         Safe(delegate {
-            using(var select=new Selector(source)) if(select.ShowDialog(this)==DialogResult.OK) {
-                var spec=select.Result; spec.Left=Screen.FromControl(this).WorkingArea.Left+40+overlays.Count*24; spec.Top=Screen.FromControl(this).WorkingArea.Top+40+overlays.Count*24;
-                CreateOverlay(spec); dirty=true; added=true;
+            using(var editor=new AreaEditor(source,overlays,CreateOverlay,RemoveOverlay,areas.SelectedIndex)) {
+                editor.Changed+=delegate { dirty=true; };
+                editor.ShowDialog(this);
+                RefreshAreaList(editor.SelectedOverlay);
             }
         });
-        if(added) PositionAreas();
     }
-    void PositionAreas() {
-        if(overlays.Count==0) { MessageBox.Show(this,"Adicione uma área antes de posicioná-la."); return; }
-        if(!Ready()) return;
-        if(locked) ToggleMode();
-        Safe(delegate {
-            using(var planner=new Planner(source,overlays,areas.SelectedIndex))
-                if(planner.ShowDialog(this)==DialogResult.OK && planner.Moved) dirty=true;
-        });
+    // O editor pode ter criado, removido ou renomeado áreas: refaz a lista e seleciona a área em que ele parou.
+    void RefreshAreaList(Overlay select) {
+        int index=select!=null?overlays.IndexOf(select):areas.SelectedIndex;
+        areas.Items.Clear();
+        foreach(var overlay in overlays) areas.Items.Add(overlay.Spec);
+        if(index>=0 && index<areas.Items.Count) areas.SelectedIndex=index;
+        windows.Enabled=overlays.Count==0;
+        BindSelection();
     }
-    void CreateOverlay(RegionSpec spec) {
+    Overlay CreateOverlay(RegionSpec spec) {
         var overlay=new Overlay(source,spec);
         overlay.SetObsMode(false);
         try { overlay.Prepare(); }
         catch { overlay.Dispose(); throw; }
         overlay.Changed+=delegate { dirty=true; };
         overlays.Add(overlay); areas.Items.Add(spec); areas.SelectedIndex=areas.Items.Count-1; windows.Enabled=false;
-        detail.Text="Posicione a área no planejador. Ela aparece na tela quando você travar para jogar.";
+        detail.Text="Posicione a área no editor. Ela aparece na tela quando você travar para jogar.";
         obsCapture.Enabled=true;
-    }
-    void EditArea() {
-        var overlay=Selected;
-        if(overlay==null || !Ready()) return;
-        Safe(delegate {
-            using(var select=new Selector(source,overlay.Spec)) {
-                if(select.ShowDialog(this)!=DialogResult.OK) return;
-                overlay.UpdateRegion(select.Result);
-                int index=overlays.IndexOf(overlay);
-                areas.Items[index]=overlay.Spec; areas.SelectedIndex=index;
-                dirty=true; BindSelection();
-            }
-        });
+        return overlay;
     }
     void ToggleVisibility() {
         overlaysHidden=!overlaysHidden;
         visibility.Text=overlaysHidden?"Mostrar overlays":"Ocultar overlays";
         TickSource(); UpdateStatus();
     }
-    void RemoveArea() {
-        int index=areas.SelectedIndex; if(index<0) return;
+    void RemoveArea() { RemoveOverlay(Selected); }
+    void RemoveOverlay(Overlay overlay) {
+        int index=overlays.IndexOf(overlay); if(index<0) return;
         overlays[index].Close(); overlays[index].Dispose(); overlays.RemoveAt(index); areas.Items.RemoveAt(index); dirty=true;
         if(areas.Items.Count>0) areas.SelectedIndex=Math.Min(index,areas.Items.Count-1);
         windows.Enabled=overlays.Count==0;
@@ -220,7 +206,7 @@ internal sealed class MainForm : FramelessForm {
         BindSelection();
     }
     void BindSelection() {
-        binding=true; zoom.Enabled=opacity.Enabled=edit.Enabled=Selected!=null;
+        binding=true; zoom.Enabled=opacity.Enabled=Selected!=null;
         obsCapture.Enabled=overlays.Count>0;
         zoom.SelectedIndex=-1;
         if(Selected!=null) opacity.Value=Selected.Spec.Opacity;
