@@ -80,10 +80,10 @@ internal sealed class MainForm : FramelessForm {
 
         var root=Table(Columns(PercentColumn(100)),sourceRow,main,detail,obs,actions,status);
         root.RowStyles[BodyRow]=new RowStyle(SizeType.Percent,100); layout=root;
-        root.AutoSize=false; root.Padding=new Padding(10,0,10,2);
+        root.AutoSize=false; root.Padding=new Padding(8,0,8,0);
         foreach(Control c in new Control[]{sourceRow,main,detail,obs,actions}) c.Margin=new Padding(0,0,0,8);
         Controls.Add(root);
-        ClientSize=new Size(640,490); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
+        ClientSize=new Size(640,522); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { EditArea(); };

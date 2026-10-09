@@ -11,7 +11,7 @@ namespace TibiaScarabEye.UI;
 // Mover, redimensionar, minimizar e fechar são desenhados aqui, pois não há barra de título nativa.
 internal abstract class FramelessForm : Form {
     // Valores lógicos (96 dpi); a janela converte para pixels do dispositivo.
-    const int LogoHeight=128, PanelTop=68, ContentGap=6, Edge=6, CaptionButtonWidth=30, CaptionButtonHeight=22;
+    const int LogoHeight=128, PanelTop=116, ContentTop=PanelTop+48, Edge=8, CaptionButtonWidth=30, CaptionButtonHeight=22;
     const int HitClient=1, HitCaption=2, HitLeft=10, HitRight=11, HitBottom=15, HitBottomLeft=16, HitBottomRight=17;
     const int WmNcHitTest=0x84, WmNcLButtonDblClk=0xA3, WmSysCommand=0x112, ScMaximize=0xF030, WsMinimizeBox=0x20000;
     const int OpaqueAlpha=128;
@@ -46,7 +46,7 @@ internal abstract class FramelessForm : Form {
     }
 
     protected override void OnLayout(LayoutEventArgs e) {
-        var padding=new Padding(Px(Edge),Px(LogoHeight+ContentGap),Px(Edge),Px(Edge));
+        var padding=new Padding(Px(Edge),Px(ContentTop),Px(Edge),Px(Edge));
         if(Padding!=padding) Padding=padding;
         base.OnLayout(e);
     }
@@ -87,13 +87,13 @@ internal abstract class FramelessForm : Form {
 
     protected override void OnPaint(PaintEventArgs e) {
         base.OnPaint(e);
-        Theme.Frame(e.Graphics,PanelBounds);
+        Theme.GoldFrame(e.Graphics,PanelBounds,Px(2));
         if(scaledLogo!=null) e.Graphics.DrawImageUnscaled(scaledLogo,LogoBounds.Location);
-        var logo=LogoBounds; int left=Px(Edge)+Px(14), top=Px(PanelTop)+Px(10), width=logo.Left-left-Px(8);
+        var logo=LogoBounds; int left=Px(Edge)+Px(10), top=Px(PanelTop)+Px(8), width=logo.Left-left-Px(8);
         if(width<=0) return;
-        using(var title=new Font("Tahoma",13,FontStyle.Bold)) using(var caption=new Font("Tahoma",8)) {
+        using(var title=new Font("Tahoma",11,FontStyle.Bold)) using(var caption=new Font("Tahoma",8)) {
             TextRenderer.DrawText(e.Graphics,BandTitle,title,new Rectangle(left,top,width,title.Height+Px(2)),Theme.Gold,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
-            TextRenderer.DrawText(e.Graphics,BandCaption,caption,new Rectangle(left,top+title.Height+Px(4),width,caption.Height+Px(2)),Theme.Muted,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(e.Graphics,BandCaption,caption,new Rectangle(left,top+title.Height+Px(2),width,caption.Height+Px(2)),Theme.Muted,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
         }
     }
 

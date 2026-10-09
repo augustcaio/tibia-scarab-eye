@@ -41,6 +41,20 @@ internal static class Theme {
             r.Inflate(-1,-1); g.DrawRectangle(dark,r.Left,r.Top,r.Width-1,r.Height-1);
         }
     }
+    // Cores amostradas dos arabescos dourados do logo (não do dourado das letras): claro, médio, sombra e contorno escuro.
+    static readonly Color OrnamentLight=Color.FromArgb(235,192,98), OrnamentMid=Color.FromArgb(198,122,37), OrnamentShade=Color.FromArgb(145,63,18), OrnamentLine=Color.FromArgb(66,30,8);
+    // Borda biselada de 4 anéis (contorno, brilho, corpo, contorno); topo/esquerda claros e base/direita escuros dão o relevo do metal.
+    public static void GoldFrame(Graphics g,Rectangle r,int ring) {
+        Color[] lit={OrnamentLine,OrnamentLight,OrnamentMid,OrnamentLine}, shaded={OrnamentLine,OrnamentMid,OrnamentShade,OrnamentLine};
+        for(int i=0;i<lit.Length;i++) {
+            var o=new Rectangle(r.X+i*ring,r.Y+i*ring,r.Width-2*i*ring,r.Height-2*i*ring);
+            if(o.Width<=2*ring || o.Height<=2*ring) break;
+            using(var light=new SolidBrush(lit[i])) using(var dark=new SolidBrush(shaded[i])) {
+                g.FillRectangle(light,o.X,o.Y,o.Width,ring); g.FillRectangle(light,o.X,o.Y,ring,o.Height);
+                g.FillRectangle(dark,o.X,o.Bottom-ring,o.Width,ring); g.FillRectangle(dark,o.Right-ring,o.Y,ring,o.Height);
+            }
+        }
+    }
     public static Button Button(string text,int x,int y,int width,bool primary) {
         return new StoneButton { Text=text, Location=new Point(x,y), Size=new Size(width,38), FlatStyle=FlatStyle.Flat, BackColor=Surface, ForeColor=primary?Gold:Ink, Cursor=Cursors.Hand, UseVisualStyleBackColor=false };
     }
