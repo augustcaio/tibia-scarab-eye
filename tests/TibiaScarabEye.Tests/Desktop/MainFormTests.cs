@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using TibiaScarabEye.Interop;
@@ -22,8 +23,7 @@ public class MainFormTests
         windows.Items.Add(new WindowItem { Handle = main.Handle, Title = "Tibia - Personagem" });
         windows.SelectedIndex = 0;
 
-        using var bitmap = new Bitmap(main.Width, main.Height);
-        main.DrawToBitmap(bitmap, new Rectangle(Point.Empty, main.Size));
+        using var bitmap = DesktopHarness.RenderShaped(main);
         DesktopHarness.SaveArtifact(bitmap, "interface-preview.png");
         main.Close();
     }
@@ -42,13 +42,43 @@ public class MainFormTests
                                    main.MinimumSize.Height - (main.Height - main.ClientSize.Height) + extraHeight);
         Application.DoEvents();
 
-        using var bitmap = new Bitmap(main.Width, main.Height);
-        main.DrawToBitmap(bitmap, new Rectangle(Point.Empty, main.Size));
+        using var bitmap = DesktopHarness.RenderShaped(main);
         DesktopHarness.SaveArtifact(bitmap, $"interface-{main.ClientSize.Width}x{main.ClientSize.Height}.png");
 
         AssertInsideParents(main);
         main.Close();
     }
+
+    // Sem moldura nativa: o formato (painel + logo), o arrasto pelo topo e o redimensionamento pelas bordas dependem do Region e de WM_NCHITTEST.
+    [WinFormsFact]
+    public void MainForm_IsFramelessWithLogoCutout()
+    {
+        using var main = new MainForm();
+        DesktopHarness.ShowOffscreen(main);
+
+        Assert.Equal(FormBorderStyle.None, main.FormBorderStyle);
+        var size = main.ClientSize;
+        Assert.False(main.Region.IsVisible(new Point(4, 4)), "canto superior esquerdo deve ser vazio");
+        Assert.True(main.Region.IsVisible(new Point(size.Width / 2, 20)), "o logo deve fazer parte da janela");
+        Assert.True(main.Region.IsVisible(new Point(4, size.Height - 4)), "o painel deve fazer parte da janela");
+
+        Assert.Equal(2, HitTest(main, size.Width / 2, 20));
+        Assert.Equal(1, HitTest(main, size.Width / 2, size.Height / 2));
+        Assert.Equal(10, HitTest(main, 2, size.Height / 2));
+        Assert.Equal(11, HitTest(main, size.Width - 2, size.Height / 2));
+        Assert.Equal(15, HitTest(main, size.Width / 2, size.Height - 2));
+        Assert.Equal(17, HitTest(main, size.Width - 2, size.Height - 2));
+        main.Close();
+    }
+
+    private static int HitTest(Form form, int x, int y)
+    {
+        var screen = form.PointToScreen(new Point(x, y));
+        return (int)SendMessage(form.Handle, 0x84, IntPtr.Zero, (IntPtr)((screen.Y << 16) | (screen.X & 0xFFFF)));
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr handle, int message, IntPtr wParam, IntPtr lParam);
 
     private static void AssertInsideParents(Control parent)
     {

@@ -50,6 +50,18 @@ internal static class DesktopHarness
             if (control is Button && control.Text == buttonText) ((Button)control).PerformClick();
     }
 
+    // DrawToBitmap ignora o Region da janela; aplica o recorte para a imagem mostrar o formato real (fora dele fica transparente).
+    public static Bitmap RenderShaped(Form form)
+    {
+        using var raw = new Bitmap(form.Width, form.Height);
+        form.DrawToBitmap(raw, new Rectangle(Point.Empty, form.Size));
+        var shaped = new Bitmap(form.Width, form.Height);
+        using var g = Graphics.FromImage(shaped);
+        if (form.Region != null) g.SetClip(form.Region, System.Drawing.Drawing2D.CombineMode.Replace);
+        g.DrawImageUnscaled(raw, Point.Empty);
+        return shaped;
+    }
+
     public static void SaveArtifact(Bitmap bitmap, string fileName)
     {
         string directory = Path.Combine(AppContext.BaseDirectory, "artifacts");

@@ -9,7 +9,7 @@ using TibiaScarabEye.Obs;
 
 namespace TibiaScarabEye.UI;
 
-internal sealed class MainForm : Form {
+internal sealed class MainForm : FramelessForm {
     readonly ComboBox windows=new ComboBox(), zoom=new ComboBox();
     readonly ListBox areas=new ListBox();
     readonly TrackBar opacity=new TrackBar();
@@ -28,10 +28,10 @@ internal sealed class MainForm : Form {
     string sourceTitle="";
     bool locked, binding, dirty, hotkey, visibilityHotkey, overlaysHidden;
     readonly ToolTip tips=new ToolTip();
-    const int BodyRow=3, MinClientWidth=560;
+    const int BodyRow=1, MinClientWidth=560;
     readonly TableLayoutPanel layout, body, side;
     public MainForm() {
-        Theme.Apply(this); Text="Tibia Scarab Eye • Organize sua visão de jogo • build "+BuildStamp();
+        Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
          StartPosition=FormStartPosition.CenterScreen;
 
         windows.DropDownStyle=ComboBoxStyle.DropDownList; windows.Anchor=AnchorStyles.Left|AnchorStyles.Right; windows.Margin=new Padding(0,0,8,0);
@@ -42,7 +42,6 @@ internal sealed class MainForm : Form {
         opacity.Minimum=20; opacity.Maximum=100; opacity.Value=100; opacity.TickFrequency=20;
         foreach(Control c in new Control[]{windows,zoom,gridCell,areas}) Theme.Style(c);
 
-        var title=Theme.Caption("Tibia Scarab Eye"); title.Font=new Font("Tahoma",14,FontStyle.Bold); title.Margin=Padding.Empty;
         var refresh=Theme.Button("Atualizar",false); refresh.Anchor=AnchorStyles.Left|AnchorStyles.Right; refresh.Width=90; refresh.Click+=delegate { RefreshWindows(); };
         var sourceRow=Table(Columns(AutoColumn(),PercentColumn(100),AutoColumn()),Theme.Caption("Janela do Tibia"),windows,refresh);
 
@@ -79,12 +78,12 @@ internal sealed class MainForm : Form {
         var actions=Table(Columns(PercentColumn(25),PercentColumn(25),PercentColumn(25),PercentColumn(25)),mode,save,load,visibility);
         status=Theme.Note("");
 
-        var root=Table(Columns(PercentColumn(100)),title,Theme.Note("Organize seus recortes. Leve o grupo inteiro para o OBS."),sourceRow,main,detail,obs,actions,status);
+        var root=Table(Columns(PercentColumn(100)),sourceRow,main,detail,obs,actions,status);
         root.RowStyles[BodyRow]=new RowStyle(SizeType.Percent,100); layout=root;
-        root.AutoSize=false; root.Padding=new Padding(14,10,14,6);
-        foreach(Control c in new Control[]{title,sourceRow,main,detail,obs,actions}) c.Margin=new Padding(0,0,0,8);
+        root.AutoSize=false; root.Padding=new Padding(10,0,10,2);
+        foreach(Control c in new Control[]{sourceRow,main,detail,obs,actions}) c.Margin=new Padding(0,0,0,8);
         Controls.Add(root);
-        ClientSize=new Size(640,400); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
+        ClientSize=new Size(640,490); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { EditArea(); };
