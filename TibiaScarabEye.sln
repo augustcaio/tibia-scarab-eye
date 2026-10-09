@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D1D91BD4-801
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TibiaScarabEye", "src\TibiaScarabEye\TibiaScarabEye.csproj", "{91A85C98-205A-4E9B-AF0F-2547139EA2DA}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{14221BA0-FD30-4164-92E0-53942357547A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TibiaScarabEye.Tests", "tests\TibiaScarabEye.Tests\TibiaScarabEye.Tests.csproj", "{044B87BA-9D5F-455F-8DD2-6A699B821199}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +24,13 @@ Global
 		{91A85C98-205A-4E9B-AF0F-2547139EA2DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{91A85C98-205A-4E9B-AF0F-2547139EA2DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{91A85C98-205A-4E9B-AF0F-2547139EA2DA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{044B87BA-9D5F-455F-8DD2-6A699B821199}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{044B87BA-9D5F-455F-8DD2-6A699B821199}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{044B87BA-9D5F-455F-8DD2-6A699B821199}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{044B87BA-9D5F-455F-8DD2-6A699B821199}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{91A85C98-205A-4E9B-AF0F-2547139EA2DA} = {D1D91BD4-801C-4BD8-BE6D-901F21BD17A2}
+		{044B87BA-9D5F-455F-8DD2-6A699B821199} = {14221BA0-FD30-4164-92E0-53942357547A}
 	EndGlobalSection
 EndGlobal

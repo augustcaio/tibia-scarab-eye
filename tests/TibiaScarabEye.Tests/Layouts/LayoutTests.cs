@@ -1,0 +1,34 @@
+using System;
+using System.IO;
+using TibiaScarabEye.Layouts;
+using Xunit;
+
+namespace TibiaScarabEye.Tests.Layouts;
+
+public sealed class LayoutTests : IDisposable
+{
+    private readonly string directory = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "tibiascarabeye-tests-" + Guid.NewGuid().ToString("N"))).FullName;
+
+    public void Dispose() => Directory.Delete(directory, recursive: true);
+
+    [Fact]
+    public void SaveAndLoad_RoundTripsRegionsAndObsIdentity()
+    {
+        string path = Path.Combine(directory, "layout.json");
+        var spec = new RegionSpec { Name = "Vida e mana", X = .1, Y = .2, W = .3, H = .4, Left = -100, Top = -50, Width = 300, Height = 200, Opacity = 80, ObsId = "stable-test-region" };
+        var layout = new Layout { SourceTitle = "Test window", ObsEnabled = true };
+        layout.Regions.Add(spec);
+
+        // Salvar duas vezes exercita a substituicao atomica de um arquivo existente.
+        layout.Save(path);
+        layout.Save(path);
+        var loaded = Layout.Load(path);
+
+        Assert.Equal(spec.Name, loaded.Regions[0].Name);
+        Assert.Equal(80, loaded.Regions[0].Opacity);
+        Assert.Equal(-100, loaded.Regions[0].Left);
+        Assert.True(loaded.ObsEnabled);
+        Assert.Equal(spec.ObsId, loaded.Regions[0].ObsId);
+        Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
+    }
+}
