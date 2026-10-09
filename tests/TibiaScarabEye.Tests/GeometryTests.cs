@@ -37,6 +37,29 @@ public class GeometryTests
         Assert.Equal(new Rectangle(expectedX, expectedY, 200, 100), Geometry.ClampInside(new Rectangle(x, y, 200, 100), new Size(640, 480)));
     }
 
+    [Theory]
+    [InlineData(1, 1000, 34)]
+    [InlineData(34, 1000, 34)]
+    [InlineData(50, 1000, 34)]
+    [InlineData(52, 1000, 70)]
+    [InlineData(70, 1000, 70)]
+    [InlineData(100, 1000, 106)]
+    [InlineData(106, 1000, 106)]
+    [InlineData(400, 1000, 394)]
+    public void SnapToSlots_PicksTheNearestBlockOfAdjacentSlots(int length, int max, int expected)
+    {
+        Assert.Equal(expected, Geometry.SnapToSlots(length, max));
+    }
+
+    [Theory]
+    [InlineData(400, 100, 70)]
+    [InlineData(400, 34, 34)]
+    [InlineData(400, 20, 20)]
+    public void SnapToSlots_NeverExceedsTheRoomLeft(int length, int max, int expected)
+    {
+        Assert.Equal(expected, Geometry.SnapToSlots(length, max));
+    }
+
     [Fact]
     public void ClampInside_RectangleLargerThanBoundsSitsAtOrigin()
     {

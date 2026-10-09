@@ -11,6 +11,16 @@ internal static class Geometry {
         int w=Math.Max(1,(int)(source.Width*scale)), h=Math.Max(1,(int)(source.Height*scale));
         return new Rectangle(area.Left+(area.Width-w)/2,area.Top+(area.Height-h)/2,w,h);
     }
+    // Slot do Tibia (action bar, equipamento, container): 34 px, com passo de 36 px entre slots da action bar.
+    public const int SlotSize=34, SlotPitch=36;
+    // Tamanhos de blocos de slots vizinhos da action bar: 34, 70, 106 px... O terceiro, 106, é a largura do minimapa.
+    // Escolhe o mais próximo de 'length' que caiba em 'max'.
+    public static int SnapToSlots(int length,int max) {
+        int n=Math.Max(0,(int)Math.Round((double)(length-SlotSize)/SlotPitch,MidpointRounding.AwayFromZero));
+        int size=SlotSize+n*SlotPitch;
+        while(size>max && n>0) size=SlotSize+--n*SlotPitch;
+        return Math.Max(1,Math.Min(size,max));
+    }
     // Leva o canto superior esquerdo à linha de grade mais próxima; a grade começa no canto da janela do jogo.
     public static Point SnapToGrid(Point location,int cell) {
         if(cell<1) return location;

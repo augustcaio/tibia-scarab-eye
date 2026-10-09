@@ -45,7 +45,11 @@ o conteúdo e mantém a posição do OBS. "Redefinir posições manuais" apaga t
 Desmarque "Modo manual" para a posição vir sempre do programa.
 
 CRIAR E ORGANIZAR
-Adicionar área: seleção livre ou quadrada, zoom, pan e medidas exatas.
+Adicionar área: seleção livre ou quadrada, zoom, pan e medidas exatas. Com
+"Encaixar em slots do Tibia" ligado (padrão), cada lado da seleção pula para
+34, 70, 106 px... (slots vizinhos da action bar: 34 px por slot, passo de 36 px;
+106 px é a largura do minimapa). Desligue para escolher qualquer tamanho; os
+campos de medidas exatas aceitam qualquer valor.
 Editar área: altera o recorte sem precisar removê-lo; também por duplo clique.
 Posicionar áreas: abre o planejador, uma janela do programa que mostra o jogo
 ao vivo. Arraste cada área; ela se encaixa na

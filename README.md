@@ -19,7 +19,8 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
 
 - **Cria overlays a partir de qualquer região do cliente.** Selecione a área
   com um retângulo livre ou um quadrado, com zoom, deslocamento e medidas
-  exatas em pixels.
+  exatas em pixels. Por padrão a seleção se encaixa em blocos de slots do Tibia
+  (34, 70, 106 px…), do slot da action bar até a largura do minimapa.
 - **Posiciona as overlays antes de elas aparecerem.** O planejador mostra o
   jogo ao vivo dentro do programa. Arraste
   cada área até o lugar certo; ela se encaixa na grade e só aparece na tela

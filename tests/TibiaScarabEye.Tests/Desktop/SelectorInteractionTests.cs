@@ -18,6 +18,7 @@ public class SelectorInteractionTests
         using var selector = new Selector(source.Handle);
         ShowOffscreen(selector);
 
+        Field<CheckBox>(selector, "slotSnap").Checked = false; // este teste cobre o modo livre/quadrado; o encaixe em slots tem teste proprio
         var squareControl = Field<CheckBox>(selector, "squareOnly");
         Assert.False(squareControl.Checked, "Free rectangular selection is not the default");
         squareControl.Checked = true;
@@ -106,6 +107,7 @@ public class SelectorInteractionTests
         using var source = new SourceWindow();
         using var selector = new Selector(source.Handle);
         ShowOffscreen(selector);
+        Field<CheckBox>(selector, "slotSnap").Checked = false;
 
         Drag(selector, MouseButtons.Left, new Point(300, 200), new Point(450, 260));
         Rectangle free = Field<Rectangle>(selector, "selection");
@@ -136,5 +138,29 @@ public class SelectorInteractionTests
         using (var dimensions = new Thumbnail(selector.Handle, source.Handle))
             Assert.Equal(new Rectangle(17, 23, 120, 40), selector.Result.Crop(dimensions.SourceSize));
         selector.Result.Validate();
+    }
+
+    [WinFormsFact]
+    public void SlotSnap_IsOnByDefaultAndMakesSelectionSidesBlocksOfSlots()
+    {
+        using var source = new SourceWindow();
+        using var selector = new Selector(source.Handle);
+        ShowOffscreen(selector);
+        Assert.True(Field<CheckBox>(selector, "slotSnap").Checked, "O encaixe em slots deve vir ligado");
+
+        Drag(selector, MouseButtons.Left, new Point(300, 200), new Point(450, 260));
+        Rectangle block = Field<Rectangle>(selector, "selection");
+        Assert.Contains(block.Width, new[] { 34, 70, 106, 142, 178, 214, 250, 286, 322, 358, 394, 430, 466, 502, 538, 574, 610 });
+        Assert.Contains(block.Height, new[] { 34, 70, 106, 142, 178, 214, 250, 286, 322, 358, 394, 430 });
+        Assert.True(block.Width > block.Height, "Cada lado deve ser encaixado de forma independente");
+
+        Drag(selector, MouseButtons.Left, new Point(600, 400), new Point(603, 402));
+        Rectangle slot = Field<Rectangle>(selector, "selection");
+        Assert.Equal(new Size(34, 34), slot.Size);
+
+        Field<CheckBox>(selector, "squareOnly").Checked = true;
+        Drag(selector, MouseButtons.Left, new Point(300, 200), new Point(450, 260));
+        Rectangle square = Field<Rectangle>(selector, "selection");
+        Assert.True(square.Width == square.Height && (square.Width - 34) % 36 == 0, "Quadrado deve seguir a escada de slots");
     }
 }

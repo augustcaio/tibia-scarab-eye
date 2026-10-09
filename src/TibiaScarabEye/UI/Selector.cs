@@ -16,7 +16,7 @@ internal sealed class Selector : Form {
     double zoomFactor=1;
     bool panning, panMode;
     MouseButtons panButton;
-    readonly CheckBox squareOnly=new CheckBox();
+    readonly CheckBox squareOnly=new CheckBox(), slotSnap=new CheckBox();
     readonly Button panTool;
     Point panStart, panOrigin;
     Point start;
@@ -38,6 +38,7 @@ internal sealed class Selector : Form {
         name.Items.AddRange(new object[]{"Vida e mana","Battle list","Cooldowns","Minimapa","Chat","Área personalizada"}); name.SelectedIndex=0; Controls.Add(name);
         squareOnly.Text="Manter quadrado"; squareOnly.SetBounds(420,49,220,30); Controls.Add(squareOnly);
         squareOnly.CheckedChanged+=delegate { if(!selection.IsEmpty) ReadExact(); };
+        slotSnap.Text="Encaixar em slots do Tibia (34 · 70 · 106 px…)"; slotSnap.Checked=true; slotSnap.SetBounds(650,49,380,30); Controls.Add(slotSnap);
         Controls.Add(Theme.Label("Zoom da prévia",20,91,125,25,true));
         previewZoom.SetBounds(145,87,95,30); previewZoom.DropDownStyle=ComboBoxStyle.DropDownList;
         previewZoom.Items.AddRange(new object[]{"1× (ajustar)","2×","4×","8×"}); previewZoom.SelectedIndex=0; Controls.Add(previewZoom);
@@ -123,10 +124,19 @@ internal sealed class Selector : Form {
         side=Math.Min(side,Math.Min(dx<0?anchor.X:size.Width-anchor.X,dy<0?anchor.Y:size.Height-anchor.Y));
         return side<=0?Rectangle.Empty:new Rectangle(dx<0?anchor.X-side:anchor.X,dy<0?anchor.Y-side:anchor.Y,side,side);
     }
+    // Seleção em blocos de slots (34, 70, 106 px...): cada lado pula para o tamanho de slots mais próximo que cabe na janela.
+    Rectangle SlotSelection(Point anchor,Point end) {
+        int dx=end.X-anchor.X, dy=end.Y-anchor.Y;
+        if(dx==0 && dy==0) return Rectangle.Empty;
+        int roomX=dx<0?anchor.X:sourceSize.Width-anchor.X, roomY=dy<0?anchor.Y:sourceSize.Height-anchor.Y, w, h;
+        if(squareOnly.Checked) w=h=Geometry.SnapToSlots(Math.Max(Math.Abs(dx),Math.Abs(dy)),Math.Min(roomX,roomY));
+        else { w=Geometry.SnapToSlots(Math.Abs(dx),roomX); h=Geometry.SnapToSlots(Math.Abs(dy),roomY); }
+        return new Rectangle(dx<0?anchor.X-w:anchor.X,dy<0?anchor.Y-h:anchor.Y,w,h);
+    }
     void DragTo(Point p) {
         Point end=ToSource(p);
         if(moving) selection.Location=new Point(Math.Max(0,Math.Min(sourceSize.Width-selection.Width,end.X-moveOffset.X)),Math.Max(0,Math.Min(sourceSize.Height-selection.Height,end.Y-moveOffset.Y)));
-        else selection=squareOnly.Checked?Square(start,end,sourceSize):Rectangle.FromLTRB(Math.Min(start.X,end.X),Math.Min(start.Y,end.Y),Math.Max(start.X,end.X),Math.Max(start.Y,end.Y));
+        else selection=slotSnap.Checked?SlotSelection(start,end):squareOnly.Checked?Square(start,end,sourceSize):Rectangle.FromLTRB(Math.Min(start.X,end.X),Math.Min(start.Y,end.Y),Math.Max(start.X,end.X),Math.Max(start.Y,end.Y));
         SyncExact(); Mark();
     }
     void ReadExact() {
