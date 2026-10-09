@@ -83,7 +83,7 @@ internal sealed class MainForm : FramelessForm {
         root.AutoSize=false; root.Padding=new Padding(8,0,8,0);
         foreach(Control c in new Control[]{sourceRow,main,detail,obs,actions}) c.Margin=new Padding(0,0,0,8);
         Controls.Add(root);
-        ClientSize=new Size(640,522); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
+        ClientSize=new Size(640,498); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { EditArea(); };

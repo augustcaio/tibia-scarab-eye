@@ -11,7 +11,7 @@ namespace TibiaScarabEye.UI;
 // Mover, redimensionar, minimizar e fechar são desenhados aqui, pois não há barra de título nativa.
 internal abstract class FramelessForm : Form {
     // Valores lógicos (96 dpi); a janela converte para pixels do dispositivo.
-    const int LogoHeight=128, PanelTop=116, ContentTop=PanelTop+48, Edge=8, CaptionButtonWidth=30, CaptionButtonHeight=22;
+    const int LogoHeight=128, PanelTop=92, ContentTop=PanelTop+48, Edge=8, CaptionButtonWidth=30, CaptionButtonHeight=22;
     const int HitClient=1, HitCaption=2, HitLeft=10, HitRight=11, HitBottom=15, HitBottomLeft=16, HitBottomRight=17;
     const int WmNcHitTest=0x84, WmNcLButtonDblClk=0xA3, WmSysCommand=0x112, ScMaximize=0xF030, WsMinimizeBox=0x20000;
     const int OpaqueAlpha=128;
