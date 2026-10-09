@@ -58,17 +58,16 @@ internal sealed class MainForm : FramelessForm {
         var mapButton=Theme.Button("Definir mapa",false); mapButton.Anchor=AnchorStyles.Left|AnchorStyles.Right; mapButton.Click+=delegate { DefineMapArea(); };
         var gridCaption=Theme.Caption("Grade (px)");
         tips.SetToolTip(gridCaption,"Tamanho da célula da grade do mapa, em pixels"); tips.SetToolTip(gridCell,"Tamanho da célula da grade do mapa, em pixels"); tips.SetToolTip(mapButton,"Define a área do jogo onde a grade do mapa é desenhada");
+        obsCapture=Theme.Button("Sincronizar com OBS",true); obsCapture.Anchor=AnchorStyles.Left|AnchorStyles.Right; obsCapture.Margin=new Padding(0,6,0,0); obsCapture.Click+=delegate { ToggleObsOutput(); };
         var fields=Table(Columns(AutoColumn(),PercentColumn(100)),Theme.Caption("Tamanho"),zoom,opacityLabel,opacity,gridCaption,gridCell);
-        side=Table(Columns(PercentColumn(100)),fields,mapButton); side.Dock=DockStyle.Top; var right=side;
+        side=Table(Columns(PercentColumn(100)),fields,mapButton,obsCapture); side.Dock=DockStyle.Top; var right=side;
         var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
         main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
 
         detail=Theme.Note("Adicione uma área. Arraste os recortes para dentro do jogo.");
-        obsCapture=Theme.Button("Sincronizar com OBS",true); obsCapture.Anchor=AnchorStyles.Top|AnchorStyles.Right; obsCapture.Width=170; obsCapture.Click+=delegate { ToggleObsOutput(); };
         tips.SetToolTip(obsCapture,"A Captura de jogo do Tibia fica direto na cena do OBS; as overlays viram grupos. Usa a imagem já capturada, não recaptura a tela.");
         obsStatus=Theme.Note("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.");
-        obsStatus.Margin=new Padding(0,0,10,0);
-        var obs=Table(Columns(PercentColumn(100),AutoColumn()),obsStatus,obsCapture);
+        var obs=obsStatus;
 
         mode=Theme.Button("Travar para jogar",true); var save=Theme.Button("Salvar layout",false); var load=Theme.Button("Abrir layout",false); visibility=Theme.Button("Ocultar overlays",false);
         mode.Click+=delegate { ToggleMode(); }; save.Click+=delegate { SaveLayout(); }; load.Click+=delegate { OpenLayout(); }; visibility.Click+=delegate { ToggleVisibility(); };
