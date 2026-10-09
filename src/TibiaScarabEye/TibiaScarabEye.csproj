@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Assets\logo.png" LogicalName="logo.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="TibiaScarabEye.Tests" />
   </ItemGroup>
 

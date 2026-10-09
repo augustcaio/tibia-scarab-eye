@@ -23,8 +23,9 @@ INSTALAÇÃO — UMA VEZ
 
 USO DIÁRIO
 - Abra o programa, selecione o Tibia, abra seu layout e sincronize.
-- Arrastar, redimensionar, editar a seleção e mudar a opacidade atualiza o
-  grupo no OBS em cerca de 100 ms. O vídeo acompanha a taxa da Captura de jogo.
+- Posicionar, editar a seleção, mudar o tamanho e a opacidade atualiza o grupo
+  no OBS em cerca de 100 ms. As overlays só aparecem na tela e no OBS no modo
+  jogo; no modo edição elas ficam escondidas. O vídeo acompanha a taxa da Captura de jogo.
 - Espaços fora dos recortes são transparentes. As bordas têm o estilo Tibia.
 - Ctrl + Shift + F8 alterna edição/jogo. Ctrl + Shift + F9 mostra/oculta as
   overlays na tela e no OBS. Os botões continuam disponíveis.
@@ -44,10 +45,40 @@ o conteúdo e mantém a posição do OBS. "Redefinir posições manuais" apaga t
 Desmarque "Modo manual" para a posição vir sempre do programa.
 
 CRIAR E ORGANIZAR
-Adicionar área: seleção livre ou quadrada, zoom, pan e medidas exatas.
-Editar área: altera o recorte sem precisar removê-lo; também por duplo clique.
-Arraste o conteúdo para mover e as bordas para redimensionar.
-Definir mapa: delimita a grade; o campo numérico controla a célula em pixels.
+Editor de áreas: abre uma janela do programa com o jogo ao vivo; criar e
+posicionar acontecem ali, e as mudanças valem na hora (não há aplicar nem
+cancelar). Também abre com duplo clique na lista.
+- Arraste no vazio para criar uma área. O retângulo desenhado é o recorte e a
+  overlay nasce ao lado dele, no tamanho real do recorte.
+- Arraste uma área para posicioná-la. Ela se prende a uma grade invisível de 8
+  pixels (segure Alt para mover sem grade). Setas movem uma célula; Shift +
+  setas, 1 pixel. Alt + setas movem o recorte de origem 1 pixel (Shift: 10).
+- Com "Encaixar em slots do Tibia" ligado (padrão), cada lado do recorte pula
+  para 34, 70, 106 px... (slots vizinhos da action bar: 34 px por slot, passo de
+  36 px; 106 px é a largura do minimapa). "Manter quadrado" combina com isso.
+  Desligue para escolher qualquer tamanho; os campos Recorte aceitam qualquer
+  valor.
+- Roda do mouse: zoom. Segure Espaço (como no Photoshop), o botão do meio ou o
+  direito e arraste para mover a visão.
+- O contorno dourado é a overlay selecionada; o tracejado ciano é o recorte
+  de origem dela. Cinza pontilhado é camada escondida; azul claro, camada
+  travada. Delete ou Remover apaga; o campo Nome renomeia.
+- Camadas (painel à direita, de cima para baixo): o olho esconde a camada (ela
+  não aparece na tela nem no OBS), o cadeado trava (não move nem apaga). Subir e
+  Descer mudam a ordem; a última da lista fica por cima. A ordem, o olho e o
+  cadeado ficam salvos no layout.
+- Seleção múltipla: Ctrl + clique alterna, Shift + clique soma, Shift + arrastar
+  no vazio seleciona o que o retângulo toca, Ctrl + A seleciona tudo. As áreas
+  selecionadas se movem juntas. Esq., Centro, Dir., Topo, Meio e Base alinham as
+  áreas selecionadas entre si; Dist. H e Dist. V igualam os vãos (3 ou mais).
+- Guias: ao arrastar, bordas e centros se prendem aos das outras áreas a poucos
+  pixels, e uma linha rosa mostra o alinhamento. Alt ao arrastar desliga as
+  guias e a grade.
+- Ctrl + Z desfaz e Ctrl + Y (ou Ctrl + Shift + Z) refaz; vale criar, mover,
+  editar recorte, ordem, olho, cadeado, opacidade, duplicar e apagar. O histórico
+  vale enquanto o editor está aberto. Ctrl + D duplica. A posição do pixel sob o
+  mouse aparece no rodapé.
+Nada aparece sobre o jogo até você clicar em Travar para jogar.
 Tamanho e opacidade: ajustes da área selecionada.
 Salvar layout / Abrir layout: arquivos JSON.
 
@@ -57,7 +88,8 @@ o script entende como o jogo. "Ajuste fino X/Y" desloca todas as overlays em
 pixels do canvas, caso queira compensar algo. O log do OBS (Ajuda > Arquivos
 de log) traz linhas "Tibia Scarab Eye: ..." com tamanhos e escala.
 Antes de diagnosticar um deslocamento, confira se o "build dd/MM HH:mm" no
-título da janela é o do executável que você acabou de compilar.
+canto superior esquerdo da janela é o do executável que você acabou de
+compilar.
 
 DETALHES E LIMITES
 O arquivo de sincronização fica em:
@@ -73,8 +105,7 @@ primeiro: a integração não contorna bloqueios de captura.
 A sincronização considera a área interna da janela do Tibia. Partes de uma
 seleção fora dela não existem na Captura de jogo e são cortadas. Se a fonte
 tiver filtros que mudam seu enquadramento, a seleção pode divergir. Confira o
-alinhamento após alterar resolução, DPI ou filtros. A grade de edição não é
-enviada ao OBS.
+alinhamento após alterar resolução, DPI ou filtros.
 
 COMPILAR
 Windows x64 / .NET 8. Veja o README.md: dotnet build TibiaScarabEye.sln -c

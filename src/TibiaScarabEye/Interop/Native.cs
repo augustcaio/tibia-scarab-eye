@@ -36,6 +36,9 @@ internal static class Native {
     [DllImport("user32.dll")] internal static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
     [DllImport("user32.dll")] internal static extern bool RegisterHotKey(IntPtr h, int id, uint modifiers, uint key);
     [DllImport("user32.dll")] internal static extern bool UnregisterHotKey(IntPtr h, int id);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
+    // Põe a janela no topo da faixa das janelas topmost, sem mover, redimensionar nem ativar.
+    internal static void BringToTop(IntPtr h) { SetWindowPos(h,new IntPtr(-1),0,0,0,0,0x13); }
     internal const int DWMWA_EXTENDED_FRAME_BOUNDS=9;
     internal static Rect ExtendedFrameBounds(IntPtr h) {
         Rect rect;

@@ -31,4 +31,32 @@ public sealed class LayoutTests : IDisposable
         Assert.Equal(spec.ObsId, loaded.Regions[0].ObsId);
         Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
     }
+
+    [Fact]
+    public void LayerFlagsAndOrder_SurviveSaveAndLoad()
+    {
+        string path = Path.Combine(directory, "layers.json");
+        var layout = new Layout();
+        layout.Regions.Add(new RegionSpec { Name = "Baixo", X = .1, Y = .1, W = .1, H = .1, Width = 40, Height = 30, Hidden = true });
+        layout.Regions.Add(new RegionSpec { Name = "Cima", X = .2, Y = .2, W = .1, H = .1, Width = 40, Height = 30, Locked = true });
+        layout.Save(path);
+
+        var loaded = Layout.Load(path);
+
+        Assert.Equal(new[] { "Baixo", "Cima" }, loaded.Regions.ConvertAll(r => r.Name));
+        Assert.Equal(new[] { true, false }, loaded.Regions.ConvertAll(r => r.Hidden));
+        Assert.Equal(new[] { false, true }, loaded.Regions.ConvertAll(r => r.Locked));
+    }
+
+    [Fact]
+    public void LayoutsFromOlderVersions_LoadVisibleAndUnlocked()
+    {
+        string path = Path.Combine(directory, "old.json");
+        File.WriteAllText(path, "{\"Regions\":[{\"H\":0.1,\"Height\":30,\"Left\":10,\"Name\":\"Antiga\",\"ObsId\":\"x\",\"ObsTitle\":\"t\",\"Opacity\":100,\"Top\":10,\"W\":0.1,\"Width\":40,\"X\":0.1,\"Y\":0.1}],\"Version\":1}");
+
+        var region = Layout.Load(path).Regions[0];
+
+        Assert.False(region.Hidden);
+        Assert.False(region.Locked);
+    }
 }

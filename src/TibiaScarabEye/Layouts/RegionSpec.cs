@@ -12,7 +12,15 @@ namespace TibiaScarabEye.Layouts;
     [DataMember] public double X, Y, W, H;
     [DataMember] public int Left, Top, Width, Height;
     [DataMember] public int Opacity=100;
+    // Camada: escondida não aparece na tela nem no OBS; travada não se move nem se apaga no editor.
+    // São "não" para que layouts antigos, sem esses campos, continuem visíveis e livres. A ordem das camadas é a ordem da lista.
+    [DataMember] public bool Hidden, Locked;
     public override string ToString() { return Name; }
+    public RegionSpec Clone() { return (RegionSpec)MemberwiseClone(); }
+    public bool SameAs(RegionSpec o) {
+        return o!=null && Name==o.Name && ObsId==o.ObsId && ObsTitle==o.ObsTitle && X==o.X && Y==o.Y && W==o.W && H==o.H
+            && Left==o.Left && Top==o.Top && Width==o.Width && Height==o.Height && Opacity==o.Opacity && Hidden==o.Hidden && Locked==o.Locked;
+    }
     public Rectangle Crop(Size size) {
         int left=Math.Max(0,Math.Min(size.Width-1,(int)Math.Round(X*size.Width)));
         int top=Math.Max(0,Math.Min(size.Height-1,(int)Math.Round(Y*size.Height)));

@@ -57,6 +57,13 @@ internal sealed class Overlay : Form {
         } finally { changingMode=false; }
         Render(); Invalidate();
     }
+    // Aplica um estado guardado (desfazer/refazer): recorte, nome, opacidade, camada e posição exata da janela.
+    public void Restore(RegionSpec state) {
+        Spec.Name=state.Name; Spec.X=state.X; Spec.Y=state.Y; Spec.W=state.W; Spec.H=state.H; Spec.Opacity=state.Opacity; Spec.Hidden=state.Hidden; Spec.Locked=state.Locked;
+        Bounds=new Rectangle(state.Left,state.Top+(locked?Bar:0),state.Width+2*Border,state.Height+(locked?0:Bar)+2*Border);
+        CaptureSpec(); ApplyStyle(); Render(); Invalidate();
+    }
+    public void BringToTop() { if(IsHandleCreated) Native.BringToTop(Handle); }
     public void CaptureSpec() { Spec.Left=Left; Spec.Top=Top-(locked?Bar:0); Spec.Width=ClientSize.Width-2*Border; Spec.Height=ClientSize.Height-(locked?0:Bar)-2*Border; }
     public void UpdateRegion(RegionSpec edited) {
         edited.Validate();
@@ -67,16 +74,8 @@ internal sealed class Overlay : Form {
         Size=new Size(width+2*Border,height+(locked?0:Bar)+2*Border);
         CaptureSpec(); Render(); Invalidate(); if(Changed!=null) Changed();
     }
-    public void SnapToGrid(Rectangle grid,int cell) {
-        if(locked || cell<1 || grid.IsEmpty) return;
-        Rectangle b=Bounds;
-        if(!b.IntersectsWith(grid)) return;
-        int left=grid.Left+(int)Math.Round((double)(b.Left-grid.Left)/cell)*cell;
-        int top=grid.Top+(int)Math.Round((double)(b.Top-grid.Top)/cell)*cell;
-        if(Math.Abs(left-b.Left)<cell/2) b.X=left;
-        if(Math.Abs(top-b.Top)<cell/2) b.Y=top;
-        Bounds=b; CaptureSpec();
-    }
+    // Cria a janela sem exibi-la: a overlay só aparece na tela no modo jogo, mas já precisa da miniatura para medir o recorte.
+    public void Prepare() { if(!IsHandleCreated) CreateHandle(); Render(); }
     public void Zoom(double factor) {
         Size s=thumb.SourceSize; Rectangle crop=Spec.Crop(s);
         Size=new Size(Math.Max(32,Math.Min(4000,(int)(crop.Width*factor)))+2*Border,Math.Max(20,Math.Min(3000,(int)(crop.Height*factor)))+(locked?0:Bar)+2*Border);

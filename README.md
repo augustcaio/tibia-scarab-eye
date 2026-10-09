@@ -17,19 +17,32 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
 
 ## O que ele faz
 
-- **Cria overlays a partir de qualquer região do cliente.** Selecione a área
-  com um retângulo livre ou um quadrado, com zoom, deslocamento e medidas
-  exatas em pixels.
-- **Posiciona e ajusta cada overlay.** Arraste para mover, puxe as bordas para
-  redimensionar e edite a seleção depois, sem precisar remover a área.
+- **Cria e posiciona num só lugar.** O editor de áreas mostra o jogo ao vivo.
+  Arraste no vazio para criar uma área; arraste uma área para posicioná-la. Por
+  padrão o recorte se encaixa em blocos de slots do Tibia (34, 70, 106 px…), do
+  slot da action bar até a largura do minimapa, e a posição se prende a uma
+  grade invisível de 8 px. Roda do mouse dá zoom; segure **Espaço** (como no
+  Photoshop), o botão do meio ou o direito e arraste para mover a visão.
+- **Camadas.** Um painel lista as áreas de cima para baixo, com olho (esconder),
+  cadeado (travar), ordem (subir e descer) e opacidade. A ordem vale na tela e
+  no OBS, e fica salva no layout.
+- **Seleção múltipla e alinhamento.** Ctrl + clique, Shift + clique, Shift +
+  arrastar no vazio ou Ctrl + A selecionam várias áreas; elas se movem juntas.
+  Botões alinham à esquerda, ao centro, à direita, ao topo, ao meio e à base, e
+  distribuem com vãos iguais. Guias rosas mostram quando uma borda ou centro
+  coincide com o de outra área.
+- **Desfazer e refazer** (Ctrl + Z, Ctrl + Y), **duplicar** (Ctrl + D), leitura
+  da posição do pixel sob o mouse, setas para mover (Shift: 1 px), Alt + setas
+  para mover o recorte, medidas exatas e renomear.
+- **Ajusta cada overlay depois**, sem precisar remover a área: o recorte, o
+  tamanho (zoom da overlay) e a opacidade.
 - **Controla a opacidade** de cada overlay (de 20% a 100%).
-- **Trava para jogar.** Em modo jogo, as overlays deixam o mouse passar para o
-  cliente. Em modo edição, você as reposiciona.
+- **Trava para jogar.** Em modo jogo, as overlays aparecem sobre o jogo e
+  deixam o mouse passar para o cliente. Em modo edição elas ficam escondidas e
+  você as cria e posiciona no editor.
 - **Atalhos globais** que funcionam mesmo com o painel minimizado:
   `Ctrl + Shift + F8` alterna edição e jogo, `Ctrl + Shift + F9` mostra ou
   oculta as overlays na tela e no OBS.
-- **Grade do mapa** com tamanho de célula configurável, para alinhar as áreas
-  ao mapa.
 - **Salva e abre layouts** em arquivos JSON.
 - **Sincroniza com o OBS.** As overlays aparecem na cena, acima da captura do
   jogo, e acompanham o que você muda no programa em cerca de 100 ms.
@@ -86,7 +99,7 @@ os testes que não dependem dela: `dotnet test --filter "Category!=Desktop"`.
 ### Usar no OBS
 
 1. Abra `TibiaScarabEye.exe`, escolha a janela do Tibia em **Janela do Tibia**
-   e crie suas áreas com **Adicionar**.
+   e abra o **Editor de áreas** para criar e posicionar suas áreas.
 2. No OBS, vá em **Ferramentas > Scripts**, clique em `+` e escolha
    `obs/TibiaScarabEye.lua`.
 3. No programa, clique em **Sincronizar com OBS**. Os grupos
@@ -108,7 +121,7 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 | `src/TibiaScarabEye/Interop/` | P/Invoke e DWM. `Native.ThumbnailBounds` é a origem correta das coordenadas da miniatura |
 | `src/TibiaScarabEye/Layouts/` | `RegionSpec` e `Layout`: modelo e arquivo JSON dos layouts |
 | `src/TibiaScarabEye/Obs/` | `ObsBridge` publica o layout para o OBS a cada 100 ms |
-| `src/TibiaScarabEye/UI/` | Janela principal, seletor de área, overlays e tema |
+| `src/TibiaScarabEye/UI/` | Janela principal, editor de áreas, overlays e tema |
 | `tests/TibiaScarabEye.Tests/` | Testes xUnit (unitários e de desktop) |
 | `obs/TibiaScarabEye.lua` | Script do OBS: cria as overlays como grupos na cena |
 | `docs/LEIA-ME.txt` | Instruções de uso e instalação no OBS |
