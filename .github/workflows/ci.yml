@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet build TibiaScarabEye.sln -c Release
+      # Testes da categoria Desktop criam janelas reais e usam DWM; rodam so localmente.
+      - run: dotnet test TibiaScarabEye.sln -c Release --no-build --filter "Category!=Desktop"
