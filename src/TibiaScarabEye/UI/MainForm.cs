@@ -27,47 +27,103 @@ internal sealed class MainForm : Form {
     IntPtr source;
     string sourceTitle="";
     bool locked, binding, dirty, hotkey, visibilityHotkey, overlaysHidden;
+    readonly ToolTip tips=new ToolTip();
+    const int BodyRow=3, MinClientWidth=560;
+    readonly TableLayoutPanel layout, body, side;
     public MainForm() {
         Theme.Apply(this); Text="Tibia Scarab Eye • Organize sua visão de jogo • build "+BuildStamp();
-        ClientSize=new Size(740,752); MinimumSize=Size; StartPosition=FormStartPosition.CenterScreen;
-        var title=Theme.Label("Tibia Scarab Eye",28,20,600,36,false); title.Font=new Font("Tahoma",21,FontStyle.Bold); Controls.Add(title);
-        Controls.Add(Theme.Label("Organize seus recortes. Leve o grupo inteiro para o OBS.",28,62,680,24,true));
-        Controls.Add(Theme.Label("Janela do Tibia",28,98,500,22,false));
-        windows.SetBounds(28,127,530,30); windows.DropDownStyle=ComboBoxStyle.DropDownList; Controls.Add(windows);
-        var refresh=Theme.Button("Atualizar",570,121,140,false); refresh.Click+=delegate { RefreshWindows(); }; Controls.Add(refresh);
-        var add=Theme.Button("Adicionar área",28,180,165,true); add.Click+=delegate { AddArea(); }; Controls.Add(add);
-        edit=Theme.Button("Editar área",205,180,145,false); edit.Click+=delegate { EditArea(); }; Controls.Add(edit);
-        var remove=Theme.Button("Remover área",362,180,140,false); remove.Click+=delegate { RemoveArea(); }; Controls.Add(remove);
-        var mapButton=Theme.Button("Definir mapa",419,394,180,false); mapButton.Click+=delegate { DefineMapArea(); }; Controls.Add(mapButton);
-        Controls.Add(Theme.Label("Grade do mapa / célula em px",419,369,290,22,true));
-        gridCell.SetBounds(615,400,94,30); gridCell.Minimum=8; gridCell.Maximum=128; gridCell.Increment=8; gridCell.Value=32; gridCell.BackColor=Color.FromArgb(39,39,37); gridCell.ForeColor=Theme.Ink; Controls.Add(gridCell);
-        gridCell.ValueChanged+=delegate { if(gridCell.Value<4) return; if(grid!=null) { grid.Close(); grid.Dispose(); grid=null; } dirty=true; if(!locked) RefreshGrid(); };
-        areas.SetBounds(28,237,365,195); areas.BackColor=Theme.Surface; areas.ForeColor=Theme.Ink; areas.BorderStyle=BorderStyle.FixedSingle; areas.ItemHeight=32; areas.IntegralHeight=false;
-        areas.SelectedIndexChanged+=delegate { BindSelection(); }; Controls.Add(areas);
+         StartPosition=FormStartPosition.CenterScreen;
+
+        windows.DropDownStyle=ComboBoxStyle.DropDownList; windows.Anchor=AnchorStyles.Left|AnchorStyles.Right; windows.Margin=new Padding(0,0,8,0);
+        zoom.DropDownStyle=ComboBoxStyle.DropDownList; zoom.Items.AddRange(new object[]{"50%","75%","100%","125%","150%","200%","300%"}); zoom.Width=110; zoom.Anchor=AnchorStyles.Left|AnchorStyles.Right; zoom.Margin=new Padding(0,0,0,6);
+        gridCell.Minimum=8; gridCell.Maximum=128; gridCell.Increment=8; gridCell.Value=32; gridCell.Width=70; gridCell.Anchor=AnchorStyles.Left; gridCell.Margin=new Padding(0,0,0,6);
+        areas.BorderStyle=BorderStyle.FixedSingle; areas.ItemHeight=26; areas.IntegralHeight=false; areas.Dock=DockStyle.Fill; areas.Margin=Padding.Empty; areas.MinimumSize=new Size(0,60);
+        opacity.AutoSize=false; opacity.BackColor=Theme.Background; opacity.Height=30; opacity.Width=110; opacity.Anchor=AnchorStyles.Left|AnchorStyles.Right; opacity.Margin=new Padding(0,0,0,6);
+        opacity.Minimum=20; opacity.Maximum=100; opacity.Value=100; opacity.TickFrequency=20;
+        foreach(Control c in new Control[]{windows,zoom,gridCell,areas}) Theme.Style(c);
+
+        var title=Theme.Caption("Tibia Scarab Eye"); title.Font=new Font("Tahoma",14,FontStyle.Bold); title.Margin=Padding.Empty;
+        var refresh=Theme.Button("Atualizar",false); refresh.Anchor=AnchorStyles.Left|AnchorStyles.Right; refresh.Width=90; refresh.Click+=delegate { RefreshWindows(); };
+        var sourceRow=Table(Columns(AutoColumn(),PercentColumn(100),AutoColumn()),Theme.Caption("Janela do Tibia"),windows,refresh);
+
+        var add=Theme.Button("Adicionar",true); edit=Theme.Button("Editar",false); var remove=Theme.Button("Remover",false);
+        foreach(var b in new[]{add,edit,remove}) { b.Anchor=AnchorStyles.Left|AnchorStyles.Right; b.Margin=new Padding(0,0,4,6); }
+        remove.Margin=new Padding(0,0,0,6);
+        add.Click+=delegate { AddArea(); }; edit.Click+=delegate { EditArea(); }; remove.Click+=delegate { RemoveArea(); };
+        tips.SetToolTip(add,"Adicionar área"); tips.SetToolTip(edit,"Editar área"); tips.SetToolTip(remove,"Remover área");
+        var tools=Table(Columns(PercentColumn(34),PercentColumn(33),PercentColumn(33)),add,edit,remove);
+        var left=Table(Columns(PercentColumn(100)),tools,areas);
+        left.RowStyles[1]=new RowStyle(SizeType.Percent,100); left.Margin=new Padding(0,0,12,0);
+
+        opacityLabel=Theme.Caption("Opacidade: 100%"); opacityLabel.MinimumSize=new Size(TextRenderer.MeasureText("Opacidade: 100%",Font).Width+2,0);
+        var mapButton=Theme.Button("Definir mapa",false); mapButton.Anchor=AnchorStyles.Left|AnchorStyles.Right; mapButton.Click+=delegate { DefineMapArea(); };
+        var gridCaption=Theme.Caption("Grade (px)");
+        tips.SetToolTip(gridCaption,"Tamanho da célula da grade do mapa, em pixels"); tips.SetToolTip(gridCell,"Tamanho da célula da grade do mapa, em pixels"); tips.SetToolTip(mapButton,"Define a área do jogo onde a grade do mapa é desenhada");
+        var fields=Table(Columns(AutoColumn(),PercentColumn(100)),Theme.Caption("Tamanho"),zoom,opacityLabel,opacity,gridCaption,gridCell);
+        side=Table(Columns(PercentColumn(100)),fields,mapButton); side.Dock=DockStyle.Top; var right=side;
+        var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
+        main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
+
+        detail=Theme.Note("Adicione uma área. Arraste os recortes para dentro do jogo.");
+        obsCapture=Theme.Button("Sincronizar com OBS",true); obsCapture.Anchor=AnchorStyles.Top|AnchorStyles.Right; obsCapture.Width=170; obsCapture.Click+=delegate { ToggleObsOutput(); };
+        tips.SetToolTip(obsCapture,"A Captura de jogo do Tibia fica direto na cena do OBS; as overlays viram grupos. Usa a imagem já capturada, não recaptura a tela.");
+        obsStatus=Theme.Note("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.");
+        obsStatus.Margin=new Padding(0,0,10,0);
+        var obs=Table(Columns(PercentColumn(100),AutoColumn()),obsStatus,obsCapture);
+
+        mode=Theme.Button("Travar para jogar",true); var save=Theme.Button("Salvar layout",false); var load=Theme.Button("Abrir layout",false); visibility=Theme.Button("Ocultar overlays",false);
+        mode.Click+=delegate { ToggleMode(); }; save.Click+=delegate { SaveLayout(); }; load.Click+=delegate { OpenLayout(); }; visibility.Click+=delegate { ToggleVisibility(); };
+        tips.SetToolTip(mode,"Ctrl + Shift + F8, mesmo com o painel minimizado"); tips.SetToolTip(visibility,"Ctrl + Shift + F9, mesmo com o painel minimizado");
+        foreach(var b in new[]{mode,save,load,visibility}) { b.Anchor=AnchorStyles.Left|AnchorStyles.Right; b.Margin=new Padding(0,0,6,0); }
+        visibility.Margin=Padding.Empty;
+        var actions=Table(Columns(PercentColumn(25),PercentColumn(25),PercentColumn(25),PercentColumn(25)),mode,save,load,visibility);
+        status=Theme.Note("");
+
+        var root=Table(Columns(PercentColumn(100)),title,Theme.Note("Organize seus recortes. Leve o grupo inteiro para o OBS."),sourceRow,main,detail,obs,actions,status);
+        root.RowStyles[BodyRow]=new RowStyle(SizeType.Percent,100); layout=root;
+        root.AutoSize=false; root.Padding=new Padding(14,10,14,6);
+        foreach(Control c in new Control[]{title,sourceRow,main,detail,obs,actions}) c.Margin=new Padding(0,0,0,8);
+        Controls.Add(root);
+        ClientSize=new Size(640,400); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
+
+        areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { EditArea(); };
-        Controls.Add(Theme.Label("Tamanho do recorte",419,237,290,25,false));
-        zoom.SetBounds(419,265,290,30); zoom.DropDownStyle=ComboBoxStyle.DropDownList; zoom.Items.AddRange(new object[]{"50%","75%","100%","125%","150%","200%","300%"});
-        zoom.SelectedIndexChanged+=delegate { if(binding || Selected==null || zoom.SelectedIndex<0) return; Safe(delegate { Selected.Zoom(new double[]{.5,.75,1,1.25,1.5,2,3}[zoom.SelectedIndex]); dirty=true; }); }; Controls.Add(zoom);
-        opacityLabel=Theme.Label("Opacidade: 100%",419,306,290,24,true); Controls.Add(opacityLabel);
-        opacity.AutoSize=false; opacity.SetBounds(413,330,300,32); opacity.Minimum=20; opacity.Maximum=100; opacity.Value=100; opacity.TickFrequency=20;
-        opacity.ValueChanged+=delegate { opacityLabel.Text="Opacidade: "+opacity.Value+"%"; if(!binding && Selected!=null) { Selected.Spec.Opacity=opacity.Value; Selected.ApplyStyle(); dirty=true; } }; Controls.Add(opacity);
-        detail=Theme.Label("Adicione uma área. Arraste os recortes para dentro do jogo.",28,446,680,26,true); Controls.Add(detail);
-        Controls.Add(Theme.Label("Grupo de overlays no OBS",28,488,470,24,false));
-        obsCapture=Theme.Button("Sincronizar com OBS",514,482,196,true); obsCapture.Click+=delegate { ToggleObsOutput(); }; Controls.Add(obsCapture);
-        Controls.Add(Theme.Label("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.\nA Captura de jogo do Tibia fica direto na cena; as overlays viram grupos.",28,527,680,40,true));
-        obsStatus=Theme.Label("Usa a imagem já capturada pelo OBS. Não recaptura a tela.",28,572,680,30,true); Controls.Add(obsStatus);
-        mode=Theme.Button("Travar para jogar",28,616,230,true); mode.Click+=delegate { ToggleMode(); }; Controls.Add(mode);
-        var save=Theme.Button("Salvar layout",274,616,190,false); save.Click+=delegate { SaveLayout(); }; Controls.Add(save);
-        var load=Theme.Button("Abrir layout",480,616,230,false); load.Click+=delegate { OpenLayout(); }; Controls.Add(load);
-        visibility=Theme.Button("Ocultar overlays",28,666,230,false); visibility.Click+=delegate { ToggleVisibility(); }; Controls.Add(visibility);
-        Controls.Add(Theme.Label("Ctrl + Shift + F9: mostrar / ocultar",274,675,430,24,true));
-        status=Theme.Label("",28,716,680,32,true); Controls.Add(status);
+        gridCell.ValueChanged+=delegate { if(gridCell.Value<4) return; if(grid!=null) { grid.Close(); grid.Dispose(); grid=null; } dirty=true; if(!locked) RefreshGrid(); };
+        zoom.SelectedIndexChanged+=delegate { if(binding || Selected==null || zoom.SelectedIndex<0) return; Safe(delegate { Selected.Zoom(new double[]{.5,.75,1,1.25,1.5,2,3}[zoom.SelectedIndex]); dirty=true; }); };
+        opacity.ValueChanged+=delegate { opacityLabel.Text="Opacidade: "+opacity.Value+"%"; if(!binding && Selected!=null) { Selected.Spec.Opacity=opacity.Value; Selected.ApplyStyle(); dirty=true; } };
         windows.SelectedIndexChanged+=delegate {
             var item=windows.SelectedItem as WindowItem;
             if(item!=null && overlays.Count==0) { source=item.Handle; sourceTitle=item.Title; }
         };
         Shown+=delegate { RefreshWindows(); hotkey=Native.RegisterHotKey(Handle,1,0x4006,(uint)Keys.F8); visibilityHotkey=Native.RegisterHotKey(Handle,2,0x4006,(uint)Keys.F9); UpdateStatus(); };
         timer.Interval=750; timer.Tick+=delegate { TickSource(); }; timer.Start(); BindSelection();
+    }
+    // A altura mínima é achada no layout real na largura mínima (o texto quebra em mais linhas): cresce até o painel de áreas caber os controles ao lado.
+    protected override void OnShown(EventArgs e) {
+        base.OnShown(e);
+        BeginInvoke(new Action(FitMinimumSize)); // depois do layout pendente, para medir o que o usuário realmente vê
+    }
+    void FitMinimumSize() {
+        int minWidth=LogicalToDeviceUnits(MinClientWidth), width=ClientSize.Width, height=ClientSize.Height;
+        int need=side.GetPreferredSize(Size.Empty).Height+body.Margin.Vertical, minHeight=LogicalToDeviceUnits(300);
+        for(int pass=0;pass<5;pass++) {
+            ClientSize=new Size(minWidth,minHeight); PerformLayout(); PerformLayout();
+            int shortfall=need-layout.GetRowHeights()[BodyRow];
+            if(shortfall<=0) break;
+            minHeight+=shortfall;
+        }
+        MinimumSize=SizeFromClientSize(new Size(minWidth,minHeight));
+        ClientSize=new Size(width,Math.Max(height,minHeight));
+    }
+    static ColumnStyle AutoColumn() { return new ColumnStyle(SizeType.AutoSize); }
+    static ColumnStyle PercentColumn(float percent) { return new ColumnStyle(SizeType.Percent,percent); }
+    static ColumnStyle[] Columns(params ColumnStyle[] columns) { return columns; }
+    // Grade que preenche as células em ordem (uma linha a cada 'columns.Length' controles); toda linha começa com altura automática.
+    static TableLayoutPanel Table(ColumnStyle[] columns,params Control[] cells) {
+        var table=new TableLayoutPanel { Dock=DockStyle.Fill, ColumnCount=columns.Length, BackColor=Color.Transparent, Margin=Padding.Empty, AutoSize=true, AutoSizeMode=AutoSizeMode.GrowAndShrink };
+        foreach(var column in columns) table.ColumnStyles.Add(column);
+        for(int i=0;i<cells.Length;i++) { if(i%columns.Length==0) table.RowStyles.Add(new RowStyle(SizeType.AutoSize)); table.Controls.Add(cells[i]); }
+        return table;
     }
     Overlay Selected { get { return areas.SelectedIndex>=0 && areas.SelectedIndex<overlays.Count?overlays[areas.SelectedIndex]:null; } }
     void ToggleObsOutput() {
@@ -200,7 +256,7 @@ internal sealed class MainForm : Form {
         });
     }
     void UpdateStatus() {
-        status.Text=hotkey?"Ctrl + Shift + F8: travar / editar, mesmo com o painel minimizado.":"Atalho indisponível. Use o botão Travar para jogar.";
+        status.Text=hotkey?"Ctrl + Shift + F8: travar / editar"+(visibilityHotkey?" · F9: mostrar / ocultar":"")+".":"Atalho indisponível. Use o botão Travar para jogar.";
         if(overlaysHidden) status.Text="Overlays ocultas. Ctrl + Shift + F9 ou Mostrar overlays para restaurar.";
         if(!visibilityHotkey) status.Text+="\nF9 indisponível: use o botão Mostrar/Ocultar overlays.";
         if(source==IntPtr.Zero) status.Text="Nenhuma janela selecionada. Abra o jogo e clique em Atualizar.";
@@ -252,5 +308,5 @@ internal sealed class MainForm : Form {
     }
     protected override void WndProc(ref Message m) { if(m.Msg==0x312) { if(m.WParam.ToInt32()==1) { ToggleMode(); return; } if(m.WParam.ToInt32()==2) { ToggleVisibility(); return; } } base.WndProc(ref m); }
     protected override void OnFormClosing(FormClosingEventArgs e) { if(e.CloseReason==CloseReason.UserClosing && !CanReplace()) { e.Cancel=true; return; } timer.Stop(); ClearOverlays(); Native.UnregisterHotKey(Handle,1); Native.UnregisterHotKey(Handle,2); base.OnFormClosing(e); }
-    protected override void Dispose(bool disposing) { if(disposing) timer.Dispose(); base.Dispose(disposing); }
+    protected override void Dispose(bool disposing) { if(disposing) { timer.Dispose(); tips.Dispose(); } base.Dispose(disposing); }
 }

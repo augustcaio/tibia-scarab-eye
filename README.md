@@ -86,7 +86,7 @@ os testes que não dependem dela: `dotnet test --filter "Category!=Desktop"`.
 ### Usar no OBS
 
 1. Abra `TibiaScarabEye.exe`, escolha a janela do Tibia em **Janela do Tibia**
-   e crie suas áreas com **Adicionar área**.
+   e crie suas áreas com **Adicionar**.
 2. No OBS, vá em **Ferramentas > Scripts**, clique em `+` e escolha
    `obs/TibiaScarabEye.lua`.
 3. No programa, clique em **Sincronizar com OBS**. Os grupos
@@ -136,3 +136,7 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 - Com monitores de escalas diferentes, o alinhamento não foi verificado.
 - O script do OBS foi validado no OBS 32.2.2 com fonte de imagem. Com o
   Tibia real ainda não foi exercitado nesta base.
+
+## Licença
+
+Todos os direitos do programa pertencem a [augustcaio](https://github.com/augustcaio). O repositório é público apenas para consulta. Veja [LICENSE](LICENSE).
