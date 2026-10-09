@@ -137,6 +137,7 @@ public class OverlayTests
             {
                 SetField(main, "source", source.Handle);
                 Field<List<Overlay>>(main, "overlays").Add(overlay);
+                SetField(main, "locked", true); // as overlays so aparecem no modo jogo
                 const int WmHotkey = 0x312, HideShowHotkeyId = 2;
                 void PressHotkey() => Call(main, "WndProc", Message.Create(main.Handle, WmHotkey, new IntPtr(HideShowHotkeyId), IntPtr.Zero));
                 PressHotkey();

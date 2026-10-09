@@ -33,6 +33,29 @@ public class MainFormTests
         main.Close();
     }
 
+    // A overlay nasce escondida: so o planejador mostra onde ela ficara; ela aparece na tela apenas no modo jogo.
+    [WinFormsFact]
+    public void NewArea_StaysHiddenUntilPlayMode()
+    {
+        using var source = new SourceWindow();
+        using var main = new MainForm();
+        DesktopHarness.ShowOffscreen(main);
+        DesktopHarness.SetField(main, "source", source.Handle);
+        var spec = new TibiaScarabEye.Layouts.RegionSpec { Name = "Vida", X = .1, Y = .1, W = .2, H = .1, Left = DesktopHarness.Offscreen.X, Top = DesktopHarness.Offscreen.Y, Width = 120, Height = 40, Opacity = 100 };
+        DesktopHarness.Call(main, "CreateOverlay", spec);
+        var overlay = DesktopHarness.Field<System.Collections.Generic.List<Overlay>>(main, "overlays")[0];
+
+        DesktopHarness.Call(main, "TickSource");
+        Assert.False(overlay.Visible, "Area recem-criada nao pode aparecer na tela antes do modo jogo");
+
+        DesktopHarness.Call(main, "ToggleMode");
+        Assert.True(overlay.Visible, "Modo jogo deve mostrar as areas");
+
+        DesktopHarness.Call(main, "ToggleMode");
+        Assert.False(overlay.Visible, "Voltar para a edicao deve esconder as areas");
+        main.Close();
+    }
+
     // Em qualquer largura/altura acima do minimo, nenhum controle pode ficar cortado pelo painel que o contem nem sobreposto a outro.
     [WinFormsTheory]
     [InlineData(0, 0)]

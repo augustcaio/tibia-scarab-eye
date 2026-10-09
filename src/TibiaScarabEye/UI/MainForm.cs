@@ -22,7 +22,6 @@ internal sealed class MainForm : FramelessForm {
     ObsBridge obsOutput;
     readonly List<Overlay> overlays=new List<Overlay>();
     readonly Timer timer=new Timer();
-    GridOverlay grid;
     RegionSpec mapRegion;
     IntPtr source;
     string sourceTitle="";
@@ -51,7 +50,9 @@ internal sealed class MainForm : FramelessForm {
         add.Click+=delegate { AddArea(); }; edit.Click+=delegate { EditArea(); }; remove.Click+=delegate { RemoveArea(); };
         tips.SetToolTip(add,"Adicionar área"); tips.SetToolTip(edit,"Editar área"); tips.SetToolTip(remove,"Remover área");
         var tools=Table(Columns(PercentColumn(34),PercentColumn(33),PercentColumn(33)),add,edit,remove);
-        var left=Table(Columns(PercentColumn(100)),tools,areas);
+        var position=Theme.Button("Posicionar áreas",false); position.Anchor=AnchorStyles.Left|AnchorStyles.Right; position.Margin=new Padding(0,6,0,0); position.Click+=delegate { PositionAreas(); };
+        tips.SetToolTip(position,"Abre o planejador: posicione as áreas sobre a prévia do jogo antes de elas aparecerem na tela");
+        var left=Table(Columns(PercentColumn(100)),tools,areas,position);
         left.RowStyles[1]=new RowStyle(SizeType.Percent,100); left.Margin=new Padding(0,0,12,0);
 
         opacityLabel=Theme.Caption("Opacidade: 100%"); opacityLabel.MinimumSize=new Size(TextRenderer.MeasureText("Opacidade: 100%",Font).Width+2,0);
@@ -64,7 +65,7 @@ internal sealed class MainForm : FramelessForm {
         var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
         main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
 
-        detail=Theme.Note("Adicione uma área. Arraste os recortes para dentro do jogo.");
+        detail=Theme.Note("Adicione uma área e posicione no planejador. Ela aparece na tela quando você travar para jogar.");
         tips.SetToolTip(obsCapture,"A Captura de jogo do Tibia fica direto na cena do OBS; as overlays viram grupos. Usa a imagem já capturada, não recaptura a tela.");
         obsStatus=Theme.Note("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.");
         var obs=obsStatus;
@@ -86,7 +87,7 @@ internal sealed class MainForm : FramelessForm {
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { EditArea(); };
-        gridCell.ValueChanged+=delegate { if(gridCell.Value<4) return; if(grid!=null) { grid.Close(); grid.Dispose(); grid=null; } dirty=true; if(!locked) RefreshGrid(); };
+        gridCell.ValueChanged+=delegate { dirty=true; };
         zoom.SelectedIndexChanged+=delegate { if(binding || Selected==null || zoom.SelectedIndex<0) return; Safe(delegate { Selected.Zoom(new double[]{.5,.75,1,1.25,1.5,2,3}[zoom.SelectedIndex]); dirty=true; }); };
         opacity.ValueChanged+=delegate { opacityLabel.Text="Opacidade: "+opacity.Value+"%"; if(!binding && Selected!=null) { Selected.Spec.Opacity=opacity.Value; Selected.ApplyStyle(); dirty=true; } };
         windows.SelectedIndexChanged+=delegate {
@@ -165,22 +166,32 @@ internal sealed class MainForm : FramelessForm {
         if(!Ready()) return;
         if(overlays.Count>=30) { MessageBox.Show(this,"O protótipo permite até 30 áreas por layout."); return; }
         if(locked) ToggleMode();
+        bool added=false;
         Safe(delegate {
             using(var select=new Selector(source)) if(select.ShowDialog(this)==DialogResult.OK) {
                 var spec=select.Result; spec.Left=Screen.FromControl(this).WorkingArea.Left+40+overlays.Count*24; spec.Top=Screen.FromControl(this).WorkingArea.Top+40+overlays.Count*24;
-                CreateOverlay(spec); dirty=true;
+                CreateOverlay(spec); dirty=true; added=true;
             }
+        });
+        if(added) PositionAreas();
+    }
+    void PositionAreas() {
+        if(overlays.Count==0) { MessageBox.Show(this,"Adicione uma área antes de posicioná-la."); return; }
+        if(!Ready()) return;
+        if(locked) ToggleMode();
+        Safe(delegate {
+            using(var planner=new Planner(source,overlays,mapRegion,(int)gridCell.Value,areas.SelectedIndex))
+                if(planner.ShowDialog(this)==DialogResult.OK && planner.Moved) dirty=true;
         });
     }
     void CreateOverlay(RegionSpec spec) {
         var overlay=new Overlay(source,spec);
         overlay.SetObsMode(false);
-        try { overlay.Show(); overlay.Render(); }
+        try { overlay.Prepare(); }
         catch { overlay.Dispose(); throw; }
-        if(overlaysHidden) overlay.Hide();
         overlay.Changed+=delegate { dirty=true; };
         overlays.Add(overlay); areas.Items.Add(spec); areas.SelectedIndex=areas.Items.Count-1; windows.Enabled=false;
-        detail.Text="Arraste o recorte para mover. Use as bordas para redimensionar.";
+        detail.Text="Posicione a área no planejador. Ela aparece na tela quando você travar para jogar.";
         obsCapture.Enabled=true;
     }
     void EditArea() {
@@ -201,32 +212,13 @@ internal sealed class MainForm : FramelessForm {
         Safe(delegate {
             using(var select=new Selector(source,mapRegion)) if(select.ShowDialog(this)==DialogResult.OK) {
                 mapRegion=select.Result; mapRegion.Name="Área do mapa"; dirty=true;
-                if(grid!=null) { grid.Close(); grid.Dispose(); grid=null; }
-                if(!locked) RefreshGrid();
             }
         });
-    }
-    Rectangle GridBounds {
-        get {
-            if(grid!=null && !grid.GridBounds.IsEmpty) return grid.GridBounds;
-            var window=Native.ThumbnailBounds(source);
-            if(mapRegion==null || window.Right<=window.Left || window.Bottom<=window.Top) return Rectangle.Empty;
-            Rectangle r=Rectangle.FromLTRB(window.Left,window.Top,window.Right,window.Bottom);
-            return Rectangle.FromLTRB(r.Left+(int)(mapRegion.X*r.Width),r.Top+(int)(mapRegion.Y*r.Height),r.Left+(int)((mapRegion.X+mapRegion.W)*r.Width),r.Top+(int)((mapRegion.Y+mapRegion.H)*r.Height));
-        }
-    }
-    void RefreshGrid() {
-        if(locked || overlaysHidden || mapRegion==null || !Native.IsWindow(source)) { if(grid!=null) grid.Hide(); return; }
-        if(grid==null) grid=new GridOverlay(source,mapRegion,(int)gridCell.Value);
-        grid.RefreshGrid();
-        Rectangle bounds=GridBounds;
-        foreach(var overlay in overlays) overlay.SnapToGrid(bounds,(int)gridCell.Value);
     }
     void ToggleVisibility() {
         overlaysHidden=!overlaysHidden;
         visibility.Text=overlaysHidden?"Mostrar overlays":"Ocultar overlays";
         TickSource(); UpdateStatus();
-        if(!locked) RefreshGrid(); else if(grid!=null) grid.Hide();
     }
     void RemoveArea() {
         int index=areas.SelectedIndex; if(index<0) return;
@@ -248,9 +240,9 @@ internal sealed class MainForm : FramelessForm {
         Safe(delegate {
             locked=!locked;
             foreach(var overlay in overlays) overlay.SetLocked(locked);
-            if(locked) { if(grid!=null) grid.Hide(); } else RefreshGrid();
+            TickSource();
             mode.Text=locked?"Destravar para editar":"Travar para jogar";
-            detail.Text=locked?"Modo jogo: bordas fixas; cliques passam para a janela atrás.":"Arraste o recorte para mover. Use as bordas para redimensionar.";
+            detail.Text=locked?"Modo jogo: bordas fixas; cliques passam para a janela atrás.":"Modo edição: posicione as áreas no planejador. Elas só aparecem na tela no modo jogo.";
         });
     }
     void UpdateStatus() {
@@ -261,15 +253,15 @@ internal sealed class MainForm : FramelessForm {
     }
     void TickSource() {
         if(overlays.Count==0) return;
-        bool alive=Native.IsWindow(source), visible=alive && !Native.IsIconic(source) && !overlaysHidden;
+        // As overlays só aparecem no modo jogo; no modo edição o planejador é o único lugar onde elas existem.
+        bool alive=Native.IsWindow(source), ready=alive && !Native.IsIconic(source) && !overlaysHidden, visible=ready && locked;
         foreach(var overlay in overlays) {
             if(visible && !overlay.Visible) overlay.Show();
             if(!visible && overlay.Visible) overlay.Hide();
             if(visible) { try { overlay.Render(); } catch { visible=false; overlay.Hide(); } }
         }
-        if(visible && !locked) RefreshGrid(); else if(grid!=null) grid.Hide();
         if(!alive) status.Text="A janela de origem foi fechada. Salve o layout; remova as áreas e selecione o jogo novamente.";
-        else if(!visible && !overlaysHidden) status.Text="Recortes pausados. Restaure a janela de origem para continuar.";
+        else if(locked && !visible && !overlaysHidden) status.Text="Recortes pausados. Restaure a janela de origem para continuar.";
         else UpdateStatus();
     }
     bool SaveLayout() {
@@ -288,7 +280,7 @@ internal sealed class MainForm : FramelessForm {
         var result=MessageBox.Show(this,"Salvar o layout atual antes de continuar?","Layout com alterações",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
         return result==DialogResult.No || (result==DialogResult.Yes && SaveLayout());
     }
-    void ClearOverlays() { StopObsOutput(); if(grid!=null) { grid.Close(); grid.Dispose(); grid=null; } foreach(var overlay in overlays) { overlay.Close(); overlay.Dispose(); } overlays.Clear(); areas.Items.Clear(); windows.Enabled=true; locked=false; mode.Text="Travar para jogar"; }
+    void ClearOverlays() { StopObsOutput(); foreach(var overlay in overlays) { overlay.Close(); overlay.Dispose(); } overlays.Clear(); areas.Items.Clear(); windows.Enabled=true; locked=false; mode.Text="Travar para jogar"; }
     void OpenLayout() {
         if(!Ready()) return;
         using(var dialog=new OpenFileDialog { Filter="Layout Tibia Scarab Eye (*.json)|*.json",Title="Abrir layout na janela selecionada" }) {

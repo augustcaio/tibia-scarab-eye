@@ -23,8 +23,9 @@ INSTALAÇÃO — UMA VEZ
 
 USO DIÁRIO
 - Abra o programa, selecione o Tibia, abra seu layout e sincronize.
-- Arrastar, redimensionar, editar a seleção e mudar a opacidade atualiza o
-  grupo no OBS em cerca de 100 ms. O vídeo acompanha a taxa da Captura de jogo.
+- Posicionar, editar a seleção, mudar o tamanho e a opacidade atualiza o grupo
+  no OBS em cerca de 100 ms. As overlays só aparecem na tela e no OBS no modo
+  jogo; no modo edição elas ficam escondidas. O vídeo acompanha a taxa da Captura de jogo.
 - Espaços fora dos recortes são transparentes. As bordas têm o estilo Tibia.
 - Ctrl + Shift + F8 alterna edição/jogo. Ctrl + Shift + F9 mostra/oculta as
   overlays na tela e no OBS. Os botões continuam disponíveis.
@@ -46,8 +47,13 @@ Desmarque "Modo manual" para a posição vir sempre do programa.
 CRIAR E ORGANIZAR
 Adicionar área: seleção livre ou quadrada, zoom, pan e medidas exatas.
 Editar área: altera o recorte sem precisar removê-lo; também por duplo clique.
-Arraste o conteúdo para mover e as bordas para redimensionar.
-Definir mapa: delimita a grade; o campo numérico controla a célula em pixels.
+Posicionar áreas: abre o planejador, uma janela do programa que mostra o jogo
+ao vivo com a grade sobre a área do mapa. Arraste cada área; ela se encaixa na
+grade (segure Alt para mover sem grade). Setas movem uma célula e Shift + setas
+movem 1 pixel. Aplicar posições grava os lugares; Cancelar descarta. Nada
+aparece sobre o jogo até você clicar em Travar para jogar.
+Definir mapa: delimita a área de jogo onde a grade é desenhada; o campo
+numérico controla a célula em pixels. Sem mapa, a grade cobre a janela inteira.
 Tamanho e opacidade: ajustes da área selecionada.
 Salvar layout / Abrir layout: arquivos JSON.
 
@@ -57,7 +63,8 @@ o script entende como o jogo. "Ajuste fino X/Y" desloca todas as overlays em
 pixels do canvas, caso queira compensar algo. O log do OBS (Ajuda > Arquivos
 de log) traz linhas "Tibia Scarab Eye: ..." com tamanhos e escala.
 Antes de diagnosticar um deslocamento, confira se o "build dd/MM HH:mm" no
-título da janela é o do executável que você acabou de compilar.
+canto superior esquerdo da janela é o do executável que você acabou de
+compilar.
 
 DETALHES E LIMITES
 O arquivo de sincronização fica em:

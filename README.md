@@ -20,16 +20,21 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
 - **Cria overlays a partir de qualquer região do cliente.** Selecione a área
   com um retângulo livre ou um quadrado, com zoom, deslocamento e medidas
   exatas em pixels.
-- **Posiciona e ajusta cada overlay.** Arraste para mover, puxe as bordas para
-  redimensionar e edite a seleção depois, sem precisar remover a área.
+- **Posiciona as overlays antes de elas aparecerem.** O planejador mostra o
+  jogo ao vivo dentro do programa, com a grade sobre a área do mapa. Arraste
+  cada área até o lugar certo; ela se encaixa na grade e só aparece na tela
+  quando você trava para jogar.
+- **Ajusta cada overlay.** Edite a seleção depois, sem precisar remover a
+  área, e mude o tamanho do recorte.
 - **Controla a opacidade** de cada overlay (de 20% a 100%).
-- **Trava para jogar.** Em modo jogo, as overlays deixam o mouse passar para o
-  cliente. Em modo edição, você as reposiciona.
+- **Trava para jogar.** Em modo jogo, as overlays aparecem sobre o jogo e
+  deixam o mouse passar para o cliente. Em modo edição elas ficam escondidas e
+  você as reposiciona no planejador.
 - **Atalhos globais** que funcionam mesmo com o painel minimizado:
   `Ctrl + Shift + F8` alterna edição e jogo, `Ctrl + Shift + F9` mostra ou
   oculta as overlays na tela e no OBS.
-- **Grade do mapa** com tamanho de célula configurável, para alinhar as áreas
-  ao mapa.
+- **Grade do mapa** com tamanho de célula configurável. O planejador a desenha
+  sobre a área de jogo que você definiu e prende as áreas nela.
 - **Salva e abre layouts** em arquivos JSON.
 - **Sincroniza com o OBS.** As overlays aparecem na cena, acima da captura do
   jogo, e acompanham o que você muda no programa em cerca de 100 ms.
@@ -86,7 +91,8 @@ os testes que não dependem dela: `dotnet test --filter "Category!=Desktop"`.
 ### Usar no OBS
 
 1. Abra `TibiaScarabEye.exe`, escolha a janela do Tibia em **Janela do Tibia**
-   e crie suas áreas com **Adicionar**.
+   e crie suas áreas com **Adicionar**. Depois de cada área, o planejador abre
+   para você posicioná-la; use **Posicionar áreas** para voltar a ele.
 2. No OBS, vá em **Ferramentas > Scripts**, clique em `+` e escolha
    `obs/TibiaScarabEye.lua`.
 3. No programa, clique em **Sincronizar com OBS**. Os grupos
@@ -108,7 +114,7 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 | `src/TibiaScarabEye/Interop/` | P/Invoke e DWM. `Native.ThumbnailBounds` é a origem correta das coordenadas da miniatura |
 | `src/TibiaScarabEye/Layouts/` | `RegionSpec` e `Layout`: modelo e arquivo JSON dos layouts |
 | `src/TibiaScarabEye/Obs/` | `ObsBridge` publica o layout para o OBS a cada 100 ms |
-| `src/TibiaScarabEye/UI/` | Janela principal, seletor de área, overlays e tema |
+| `src/TibiaScarabEye/UI/` | Janela principal, seletor de área, planejador de posições, overlays e tema |
 | `tests/TibiaScarabEye.Tests/` | Testes xUnit (unitários e de desktop) |
 | `obs/TibiaScarabEye.lua` | Script do OBS: cria as overlays como grupos na cena |
 | `docs/LEIA-ME.txt` | Instruções de uso e instalação no OBS |
