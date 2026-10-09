@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -10,6 +11,65 @@ internal static class Geometry {
         double scale=Math.Min((double)area.Width/source.Width,(double)area.Height/source.Height);
         int w=Math.Max(1,(int)(source.Width*scale)), h=Math.Max(1,(int)(source.Height*scale));
         return new Rectangle(area.Left+(area.Width-w)/2,area.Top+(area.Height-h)/2,w,h);
+    }
+    public enum AlignKind { Left, CenterH, Right, Top, MiddleV, Bottom }
+    // Alinha os retângulos entre si, usando como referência o retângulo que envolve todos. O resultado segue a ordem de entrada.
+    public static Rectangle[] Align(IList<Rectangle> rects,AlignKind kind) {
+        var result=new Rectangle[rects.Count];
+        if(rects.Count==0) return result;
+        Rectangle bounds=rects[0];
+        foreach(var r in rects) bounds=Rectangle.Union(bounds,r);
+        for(int i=0;i<result.Length;i++) {
+            Rectangle r=rects[i];
+            switch(kind) {
+                case AlignKind.Left: r.X=bounds.Left; break;
+                case AlignKind.CenterH: r.X=bounds.Left+(bounds.Width-r.Width)/2; break;
+                case AlignKind.Right: r.X=bounds.Right-r.Width; break;
+                case AlignKind.Top: r.Y=bounds.Top; break;
+                case AlignKind.MiddleV: r.Y=bounds.Top+(bounds.Height-r.Height)/2; break;
+                default: r.Y=bounds.Bottom-r.Height; break;
+            }
+            result[i]=r;
+        }
+        return result;
+    }
+    // Mantém os dois retângulos das pontas e iguala o vão entre todos, na ordem em que aparecem no eixo. Precisa de 3 ou mais.
+    public static Rectangle[] Distribute(IList<Rectangle> rects,bool horizontal) {
+        var result=new Rectangle[rects.Count];
+        rects.CopyTo(result,0);
+        if(rects.Count<3) return result;
+        var order=new List<int>();
+        for(int i=0;i<rects.Count;i++) order.Add(i);
+        order.Sort(delegate(int a,int b) { return horizontal?(rects[a].Left+rects[a].Right).CompareTo(rects[b].Left+rects[b].Right):(rects[a].Top+rects[a].Bottom).CompareTo(rects[b].Top+rects[b].Bottom); });
+        int start=horizontal?rects[order[0]].Left:rects[order[0]].Top, end=horizontal?rects[order[order.Count-1]].Right:rects[order[order.Count-1]].Bottom, total=0;
+        foreach(int i in order) total+=horizontal?rects[i].Width:rects[i].Height;
+        double gap=(double)(end-start-total)/(order.Count-1), cursor=start;
+        foreach(int i in order) {
+            Rectangle r=result[i];
+            if(horizontal) { r.X=(int)Math.Round(cursor); cursor+=r.Width+gap; } else { r.Y=(int)Math.Round(cursor); cursor+=r.Height+gap; }
+            result[i]=r;
+        }
+        return result;
+    }
+    // Encaixa bordas e centros de 'moving' nos de 'others' quando ficam a até 'threshold' pixels. Devolve o deslocamento a aplicar
+    // e preenche as posições das guias (x para as verticais, y para as horizontais) que passaram a coincidir.
+    public static Point SnapToEdges(Rectangle moving,IEnumerable<Rectangle> others,int threshold,List<int> verticalGuides,List<int> horizontalGuides) {
+        int dx=BestOffset(new[]{moving.Left,(moving.Left+moving.Right)/2,moving.Right},others,true,threshold);
+        int dy=BestOffset(new[]{moving.Top,(moving.Top+moving.Bottom)/2,moving.Bottom},others,false,threshold);
+        Rectangle moved=moving; moved.Offset(dx,dy);
+        if(verticalGuides!=null) CollectGuides(new[]{moved.Left,(moved.Left+moved.Right)/2,moved.Right},others,true,verticalGuides);
+        if(horizontalGuides!=null) CollectGuides(new[]{moved.Top,(moved.Top+moved.Bottom)/2,moved.Bottom},others,false,horizontalGuides);
+        return new Point(dx,dy);
+    }
+    static int BestOffset(int[] mine,IEnumerable<Rectangle> others,bool horizontal,int threshold) {
+        int best=0, bestDistance=threshold+1;
+        foreach(var o in others) foreach(int theirs in horizontal?new[]{o.Left,(o.Left+o.Right)/2,o.Right}:new[]{o.Top,(o.Top+o.Bottom)/2,o.Bottom})
+            foreach(int m in mine) { int d=theirs-m; if(Math.Abs(d)<bestDistance) { bestDistance=Math.Abs(d); best=d; } }
+        return bestDistance>threshold?0:best;
+    }
+    static void CollectGuides(int[] mine,IEnumerable<Rectangle> others,bool horizontal,List<int> guides) {
+        foreach(var o in others) foreach(int theirs in horizontal?new[]{o.Left,(o.Left+o.Right)/2,o.Right}:new[]{o.Top,(o.Top+o.Bottom)/2,o.Bottom})
+            foreach(int m in mine) if(m==theirs && !guides.Contains(m)) guides.Add(m);
     }
     // Quadrado com origem em 'anchor' na direção de 'end', limitado a uma área que começa em (0,0). Vazio se não houve arrasto.
     public static Rectangle Square(Point anchor,Point end,Size size) {

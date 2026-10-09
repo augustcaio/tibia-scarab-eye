@@ -56,6 +56,31 @@ public class MainFormTests
         main.Close();
     }
 
+    // Camada escondida nunca aparece no modo jogo (nem no OBS, que segue Overlay.Visible); as demais aparecem.
+    [WinFormsFact]
+    public void HiddenLayer_StaysOffInPlayMode()
+    {
+        using var source = new SourceWindow();
+        using var main = new MainForm();
+        DesktopHarness.ShowOffscreen(main);
+        DesktopHarness.SetField(main, "source", source.Handle);
+        RegionSpecFactory(main, "Visivel", hidden: false);
+        RegionSpecFactory(main, "Escondida", hidden: true);
+        var overlays = DesktopHarness.Field<System.Collections.Generic.List<Overlay>>(main, "overlays");
+
+        DesktopHarness.Call(main, "ToggleMode");
+
+        Assert.True(overlays[0].Visible, "A camada visivel deve aparecer no modo jogo");
+        Assert.False(overlays[1].Visible, "A camada escondida nao pode aparecer");
+        main.Close();
+    }
+
+    private static void RegionSpecFactory(MainForm main, string name, bool hidden)
+    {
+        var spec = new TibiaScarabEye.Layouts.RegionSpec { Name = name, X = .1, Y = .1, W = .2, H = .1, Left = DesktopHarness.Offscreen.X, Top = DesktopHarness.Offscreen.Y, Width = 120, Height = 40, Opacity = 100, Hidden = hidden };
+        DesktopHarness.Call(main, "CreateOverlay", spec);
+    }
+
     // Em qualquer largura/altura acima do minimo, nenhum controle pode ficar cortado pelo painel que o contem nem sobreposto a outro.
     [WinFormsTheory]
     [InlineData(0, 0)]

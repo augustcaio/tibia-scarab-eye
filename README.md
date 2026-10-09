@@ -22,8 +22,18 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
   padrão o recorte se encaixa em blocos de slots do Tibia (34, 70, 106 px…), do
   slot da action bar até a largura do minimapa, e a posição se prende a uma
   grade invisível de 8 px. Roda do mouse dá zoom; segure **Espaço** (como no
-  Photoshop), o botão do meio ou o direito e arraste para mover a visão. Setas,
-  medidas exatas em pixels e renomear também ficam no editor.
+  Photoshop), o botão do meio ou o direito e arraste para mover a visão.
+- **Camadas.** Um painel lista as áreas de cima para baixo, com olho (esconder),
+  cadeado (travar), ordem (subir e descer) e opacidade. A ordem vale na tela e
+  no OBS, e fica salva no layout.
+- **Seleção múltipla e alinhamento.** Ctrl + clique, Shift + clique, Shift +
+  arrastar no vazio ou Ctrl + A selecionam várias áreas; elas se movem juntas.
+  Botões alinham à esquerda, ao centro, à direita, ao topo, ao meio e à base, e
+  distribuem com vãos iguais. Guias rosas mostram quando uma borda ou centro
+  coincide com o de outra área.
+- **Desfazer e refazer** (Ctrl + Z, Ctrl + Y), **duplicar** (Ctrl + D), leitura
+  da posição do pixel sob o mouse, setas para mover (Shift: 1 px), Alt + setas
+  para mover o recorte, medidas exatas e renomear.
 - **Ajusta cada overlay depois**, sem precisar remover a área: o recorte, o
   tamanho (zoom da overlay) e a opacidade.
 - **Controla a opacidade** de cada overlay (de 20% a 100%).

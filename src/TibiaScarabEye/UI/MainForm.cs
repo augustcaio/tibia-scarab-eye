@@ -186,7 +186,7 @@ internal sealed class MainForm : FramelessForm {
         try { overlay.Prepare(); }
         catch { overlay.Dispose(); throw; }
         overlay.Changed+=delegate { dirty=true; };
-        overlays.Add(overlay); areas.Items.Add(spec); areas.SelectedIndex=areas.Items.Count-1; windows.Enabled=false;
+        overlays.Add(overlay); RefreshAreaList(overlay);
         detail.Text="Posicione a área no editor. Ela aparece na tela quando você travar para jogar.";
         obsCapture.Enabled=true;
         return overlay;
@@ -199,9 +199,8 @@ internal sealed class MainForm : FramelessForm {
     void RemoveArea() { RemoveOverlay(Selected); }
     void RemoveOverlay(Overlay overlay) {
         int index=overlays.IndexOf(overlay); if(index<0) return;
-        overlays[index].Close(); overlays[index].Dispose(); overlays.RemoveAt(index); areas.Items.RemoveAt(index); dirty=true;
-        if(areas.Items.Count>0) areas.SelectedIndex=Math.Min(index,areas.Items.Count-1);
-        windows.Enabled=overlays.Count==0;
+        overlays[index].Close(); overlays[index].Dispose(); overlays.RemoveAt(index); dirty=true;
+        RefreshAreaList(overlays.Count>0?overlays[Math.Min(index,overlays.Count-1)]:null);
         if(overlays.Count==0) { StopObsOutput(); locked=false; mode.Text="Travar para jogar"; detail.Text="Adicione uma área para começar."; }
         BindSelection();
     }
@@ -230,13 +229,17 @@ internal sealed class MainForm : FramelessForm {
     }
     void TickSource() {
         if(overlays.Count==0) return;
-        // As overlays só aparecem no modo jogo; no modo edição o planejador é o único lugar onde elas existem.
+        // As overlays só aparecem no modo jogo, e as escondidas (camada) nunca; no modo edição o editor é o único lugar onde elas existem.
         bool alive=Native.IsWindow(source), ready=alive && !Native.IsIconic(source) && !overlaysHidden, visible=ready && locked;
+        bool shown=false;
         foreach(var overlay in overlays) {
-            if(visible && !overlay.Visible) overlay.Show();
-            if(!visible && overlay.Visible) overlay.Hide();
-            if(visible) { try { overlay.Render(); } catch { visible=false; overlay.Hide(); } }
+            bool want=visible && !overlay.Spec.Hidden;
+            if(want && !overlay.Visible) { overlay.Show(); shown=true; }
+            if(!want && overlay.Visible) overlay.Hide();
+            if(want) { try { overlay.Render(); } catch { visible=false; overlay.Hide(); } }
         }
+        // A ordem das camadas é a ordem da lista (a última fica por cima); reaplica quando alguma acabou de aparecer.
+        if(shown) foreach(var overlay in overlays) if(overlay.Visible) overlay.BringToTop();
         if(!alive) status.Text="A janela de origem foi fechada. Salve o layout; remova as áreas e selecione o jogo novamente.";
         else if(locked && !visible && !overlaysHidden) status.Text="Recortes pausados. Restaure a janela de origem para continuar.";
         else UpdateStatus();

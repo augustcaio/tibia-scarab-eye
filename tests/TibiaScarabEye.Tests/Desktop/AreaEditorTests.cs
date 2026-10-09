@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -236,7 +237,7 @@ public class AreaEditorTests
         rig.AddExisting("Vida", 100, 100);
         rig.Open(0);
 
-        Click(rig.Editor, "Remover área");
+        Click(rig.Editor, "Remover");
 
         Assert.Empty(rig.Overlays);
     }
@@ -340,5 +341,278 @@ public class AreaEditorTests
         Drag(rig.Editor, MouseButtons.Left, rig.PointOf(300, 300), rig.PointOf(350, 340));
 
         Assert.Equal(new[] { "Área 1", "Área 2" }, rig.Created.ConvertAll(s => s.Name));
+    }
+
+    // ----- Camadas, selecao multipla, alinhamento e desfazer -----
+
+    private static int Selected(AreaEditor editor) => Field<System.Collections.IList>(editor, "selection").Count;
+
+    private static Rig TwoAreas(out Overlay bottom, out Overlay top)
+    {
+        var rig = new Rig();
+        bottom = rig.AddExisting("Vida", 100, 100);
+        top = rig.AddExisting("Mana", 300, 200);
+        rig.Open();
+        return rig;
+    }
+
+    [WinFormsFact]
+    public void LayerList_ShowsTheTopLayerFirstAndFollowsTheSelection()
+    {
+        using var rig = TwoAreas(out var bottom, out var top);
+        var list = Field<LayerList>(rig.Editor, "layerList");
+
+        Assert.Equal(new[] { "Mana", "Vida" }, new[] { ((RegionSpec)list.Items[0]).Name, ((RegionSpec)list.Items[1]).Name });
+
+        list.SetSelected(1, true); // a linha de baixo da lista e a camada de baixo
+        Assert.Same(bottom, rig.Editor.SelectedOverlay);
+        Assert.Equal(1, Selected(rig.Editor));
+
+        Point click = rig.PointOf(304, 204);
+        Down(rig.Editor, MouseButtons.Left, click.X, click.Y);
+        Up(rig.Editor, MouseButtons.Left, click.X, click.Y);
+        Assert.Same(top, rig.Editor.SelectedOverlay);
+        Assert.Equal(new List<int> { 0 }, list.SelectedIndices.Cast<int>().ToList());
+    }
+
+    [WinFormsFact]
+    public void HidingALayer_IsStoredInTheSpecAndCanBeUndone()
+    {
+        using var rig = TwoAreas(out var bottom, out var top);
+
+        Call(rig.Editor, "ToggleLayer", 0, true); // linha 0 = camada de cima
+
+        Assert.True(top.Spec.Hidden);
+        Assert.False(bottom.Spec.Hidden);
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.False(top.Spec.Hidden);
+        rig.Press(Keys.Control | Keys.Y);
+        Assert.True(top.Spec.Hidden);
+    }
+
+    [WinFormsFact]
+    public void LockedLayer_DoesNotMoveNorGetDeleted()
+    {
+        using var rig = new Rig();
+        var overlay = rig.AddExisting("Vida", 96, 96);
+        rig.Open(0);
+        var window = rig.WindowBounds;
+
+        Call(rig.Editor, "ToggleLayer", 0, false);
+        Assert.True(overlay.Spec.Locked);
+
+        rig.Press(Keys.Right);
+        Point from = rig.PointOf(100, 100);
+        Down(rig.Editor, MouseButtons.Left, from.X, from.Y);
+        Move(rig.Editor, MouseButtons.Left, from.X + 80, from.Y + 40);
+        Up(rig.Editor, MouseButtons.Left, from.X + 80, from.Y + 40);
+        rig.Press(Keys.Delete);
+
+        Assert.Equal(96, overlay.Left - window.Left);
+        Assert.Single(rig.Overlays);
+    }
+
+    [WinFormsFact]
+    public void RaiseAndLower_ReorderTheLayersAndUndoRestoresTheOrder()
+    {
+        using var rig = TwoAreas(out var bottom, out var top);
+        Field<LayerList>(rig.Editor, "layerList").SetSelected(1, true); // camada de baixo
+
+        Click(rig.Editor, "Subir");
+        Assert.Equal(new[] { top, bottom }, rig.Overlays);
+
+        Click(rig.Editor, "Descer");
+        Assert.Equal(new[] { bottom, top }, rig.Overlays);
+
+        Click(rig.Editor, "Subir");
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.Equal(new[] { bottom, top }, rig.Overlays);
+    }
+
+    [WinFormsFact]
+    public void SelectAll_ThenArrowsMoveEveryAreaAndDeleteRemovesThem_UndoBringsThemBackWithTheSameIdentity()
+    {
+        using var rig = TwoAreas(out var bottom, out var top);
+        string idBottom = bottom.Spec.ObsId, idTop = top.Spec.ObsId;
+        int x1 = bottom.Left, x2 = top.Left;
+
+        rig.Press(Keys.Control | Keys.A);
+        Assert.Equal(2, Selected(rig.Editor));
+        rig.Press(Keys.Right);
+        Assert.Equal(new[] { x1 + Cell, x2 + Cell }, new[] { bottom.Left, top.Left });
+
+        rig.Press(Keys.Delete);
+        Assert.Empty(rig.Overlays);
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.Equal(new[] { idBottom, idTop }, rig.Overlays.ConvertAll(o => o.Spec.ObsId));
+        Assert.Equal(new[] { x1 + Cell, x2 + Cell }, rig.Overlays.ConvertAll(o => o.Left));
+        Assert.Equal(new[] { "Vida", "Mana" }, rig.Overlays.ConvertAll(o => o.Spec.Name));
+        rig.Press(Keys.Control | Keys.Y);
+        Assert.Empty(rig.Overlays);
+    }
+
+    [WinFormsFact]
+    public void ShiftDragOnEmptySpace_SelectsTheAreasInsideTheRectangle()
+    {
+        using var rig = TwoAreas(out _, out _);
+        SetField(rig.Editor, "modifierKeys", (Func<Keys>)(() => Keys.Shift));
+
+        Drag(rig.Editor, MouseButtons.Left, rig.PointOf(60, 60), rig.PointOf(480, 300));
+
+        Assert.Equal(2, Selected(rig.Editor));
+        Assert.Equal(2, rig.Created.Count); // so as duas que ja existiam: o retangulo seleciona, nao cria
+    }
+
+    [WinFormsFact]
+    public void DraggingOneOfSeveralSelectedAreas_MovesTheWholeGroupByTheSameDelta()
+    {
+        using var rig = TwoAreas(out var bottom, out var top);
+        rig.Press(Keys.Control | Keys.A);
+        int dxBefore = top.Left - bottom.Left, dyBefore = top.Top - bottom.Top;
+        int x = bottom.Left;
+
+        Point from = rig.PointOf(104, 104);
+        Down(rig.Editor, MouseButtons.Left, from.X, from.Y);
+        Move(rig.Editor, MouseButtons.Left, from.X + 60, from.Y + 30);
+        Up(rig.Editor, MouseButtons.Left, from.X + 60, from.Y + 30);
+
+        Assert.True(bottom.Left > x, "O grupo deveria ter andado");
+        Assert.Equal(dxBefore, top.Left - bottom.Left);
+        Assert.Equal(dyBefore, top.Top - bottom.Top);
+        Assert.Equal(2, Selected(rig.Editor));
+    }
+
+    [WinFormsFact]
+    public void Align_PutsAreasOnTheSameEdgeAndDistributeEvensTheGaps()
+    {
+        using var rig = new Rig();
+        var a = rig.AddExisting("A", 100, 100);
+        var b = rig.AddExisting("B", 220, 160);
+        var c = rig.AddExisting("C", 480, 60);
+        rig.Open();
+        rig.Press(Keys.Control | Keys.A);
+
+        Click(rig.Editor, "Esq.");
+        Assert.True(a.Left == b.Left && b.Left == c.Left, "Alinhar a esquerda deveria igualar o X");
+        Click(rig.Editor, "Topo");
+        Assert.True(a.Top == b.Top && b.Top == c.Top, "Alinhar ao topo deveria igualar o Y");
+
+        rig.Press(Keys.Control | Keys.Z); // desfaz o topo
+        Assert.NotEqual(a.Top, c.Top);
+
+        // Afasta as tres na horizontal e distribui: os vaos precisam ficar iguais.
+        Call(rig.Editor, "Place", Call(rig.Editor, "Find", a.Spec.ObsId), new Rectangle(0, 100, a.Width, a.Height));
+        Call(rig.Editor, "Place", Call(rig.Editor, "Find", b.Spec.ObsId), new Rectangle(100, 100, b.Width, b.Height));
+        Call(rig.Editor, "Place", Call(rig.Editor, "Find", c.Spec.ObsId), new Rectangle(400, 100, c.Width, c.Height));
+        Click(rig.Editor, "Dist. H");
+        int gap1 = b.Left - a.Bounds.Right, gap2 = c.Left - b.Bounds.Right;
+        Assert.True(Math.Abs(gap1 - gap2) <= 1, $"Vaos desiguais: {gap1} e {gap2}");
+        Assert.Equal(0, a.Left - rig.WindowBounds.Left);
+    }
+
+    [WinFormsFact]
+    public void AlignButtons_AreDisabledWithoutEnoughAreasSelected()
+    {
+        using var rig = TwoAreas(out _, out _);
+        var align = Field<Button[]>(rig.Editor, "alignButtons");
+
+        Assert.All(align, b => Assert.False(b.Enabled));
+        rig.Press(Keys.Control | Keys.A);
+        Assert.All(align, b => Assert.True(b.Enabled));
+        Assert.False(Field<Button>(rig.Editor, "distributeH").Enabled, "Distribuir pede 3 ou mais areas");
+    }
+
+    [WinFormsFact]
+    public void UndoAndRedo_CoverCreateMoveAndCropEdits()
+    {
+        using var rig = new Rig().Open();
+
+        Drag(rig.Editor, MouseButtons.Left, rig.PointOf(100, 100), rig.PointOf(250, 160));
+        var overlay = Assert.Single(rig.Overlays);
+        string id = overlay.Spec.ObsId;
+
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.Empty(rig.Overlays);
+        rig.Press(Keys.Control | Keys.Y);
+        var again = Assert.Single(rig.Overlays);
+        Assert.Equal(id, again.Spec.ObsId);
+
+        int x = again.Left;
+        rig.Press(Keys.Right);
+        Assert.Equal(x + Cell, again.Left);
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.Equal(x, again.Left);
+
+        int width = again.Spec.Crop(rig.SourceSize).Width;
+        Field<NumericUpDown>(rig.Editor, "exactW").Value = width + 10;
+        Assert.Equal(width + 10, again.Spec.Crop(rig.SourceSize).Width);
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.Equal(width, again.Spec.Crop(rig.SourceSize).Width);
+    }
+
+    [WinFormsFact]
+    public void UndoButtons_FollowTheHistory()
+    {
+        using var rig = new Rig();
+        rig.AddExisting("Vida", 96, 96);
+        rig.Open(0);
+        var undo = Field<Button>(rig.Editor, "undoButton");
+        var redo = Field<Button>(rig.Editor, "redoButton");
+
+        Assert.False(undo.Enabled);
+        rig.Press(Keys.Right);
+        Assert.True(undo.Enabled && !redo.Enabled);
+        undo.PerformClick();
+        Assert.True(!undo.Enabled && redo.Enabled);
+    }
+
+    [WinFormsFact]
+    public void Duplicate_CopiesTheSelectedAreasWithNewIdentity()
+    {
+        using var rig = new Rig();
+        var original = rig.AddExisting("Vida", 96, 96);
+        rig.Open(0);
+        var window = rig.WindowBounds;
+
+        rig.Press(Keys.Control | Keys.D);
+
+        Assert.Equal(2, rig.Overlays.Count);
+        var copy = rig.Overlays[1];
+        Assert.Equal("Vida cópia", copy.Spec.Name);
+        Assert.NotEqual(original.Spec.ObsId, copy.Spec.ObsId);
+        Assert.Equal(original.Spec.Crop(rig.SourceSize), copy.Spec.Crop(rig.SourceSize));
+        Assert.Equal(96 + Cell, copy.Left - window.Left);
+        Assert.Same(copy, rig.Editor.SelectedOverlay);
+        Assert.False(copy.Visible);
+    }
+
+    [WinFormsFact]
+    public void OpacityBox_AppliesToEverySelectedArea()
+    {
+        using var rig = TwoAreas(out var bottom, out var top);
+        rig.Press(Keys.Control | Keys.A);
+
+        Field<NumericUpDown>(rig.Editor, "opacityBox").Value = 60;
+
+        Assert.Equal(new[] { 60, 60 }, new[] { bottom.Spec.Opacity, top.Spec.Opacity });
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.Equal(new[] { 100, 100 }, new[] { bottom.Spec.Opacity, top.Spec.Opacity });
+    }
+
+    [WinFormsFact]
+    public void DraggingNearAnotherArea_SnapsItsEdgeToIt()
+    {
+        using var rig = new Rig();
+        var fixedArea = rig.AddExisting("Fixa", 300, 100);
+        var moving = rig.AddExisting("Movel", 100, 100);
+        rig.Open();
+        int fixedTop = fixedArea.Top;
+
+        Point from = rig.PointOf(104, 104);
+        Down(rig.Editor, MouseButtons.Left, from.X, from.Y);
+        Move(rig.Editor, MouseButtons.Left, from.X + 120, from.Y + 2); // ficou a ~2 px da altura da outra
+        Up(rig.Editor, MouseButtons.Left, from.X + 120, from.Y + 2);
+
+        Assert.Equal(fixedTop, moving.Top);
     }
 }

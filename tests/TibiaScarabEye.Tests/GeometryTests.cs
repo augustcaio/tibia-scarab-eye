@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Drawing;
 using Xunit;
 
@@ -86,5 +87,64 @@ public class GeometryTests
         var source = new Size(640, 480);
         Assert.True(Geometry.SlotBlock(new Point(20, 20), new Point(20, 20), source, false).IsEmpty);
         Assert.Equal(new Rectangle(630, 470, 10, 10), Geometry.SlotBlock(new Point(630, 470), new Point(700, 600), source, false));
+    }
+
+    private static readonly Rectangle[] Pair = { new Rectangle(10, 10, 20, 20), new Rectangle(50, 40, 30, 10) };
+
+    [Theory]
+    [InlineData((int)Geometry.AlignKind.Left, 10, 10, 10, 40)]
+    [InlineData((int)Geometry.AlignKind.Right, 60, 10, 50, 40)]
+    [InlineData((int)Geometry.AlignKind.CenterH, 35, 10, 30, 40)]
+    [InlineData((int)Geometry.AlignKind.Top, 10, 10, 50, 10)]
+    [InlineData((int)Geometry.AlignKind.Bottom, 10, 30, 50, 40)]
+    [InlineData((int)Geometry.AlignKind.MiddleV, 10, 20, 50, 25)]
+    public void Align_UsesTheBoundsOfTheWholeSelection(int kind, int ax, int ay, int bx, int by)
+    {
+        var aligned = Geometry.Align(Pair, (Geometry.AlignKind)kind);
+
+        Assert.Equal(new Point(ax, ay), aligned[0].Location);
+        Assert.Equal(new Point(bx, by), aligned[1].Location);
+        Assert.Equal(Pair[0].Size, aligned[0].Size);
+    }
+
+    [Fact]
+    public void Distribute_KeepsTheEndsAndEvensTheGapsWhateverTheInputOrder()
+    {
+        var spread = Geometry.Distribute(new[] { new Rectangle(100, 0, 10, 10), new Rectangle(0, 0, 10, 10), new Rectangle(30, 0, 10, 10) }, true);
+
+        Assert.Equal(new[] { 100, 0, 50 }, new[] { spread[0].X, spread[1].X, spread[2].X });
+    }
+
+    [Fact]
+    public void Distribute_NeedsThreeOrMoreRectangles()
+    {
+        Assert.Equal(Pair, Geometry.Distribute(Pair, true));
+    }
+
+    [Fact]
+    public void SnapToEdges_PullsEdgesTogetherWithinTheThresholdAndReportsGuides()
+    {
+        var vertical = new List<int>();
+        var horizontal = new List<int>();
+
+        Point delta = Geometry.SnapToEdges(new Rectangle(100, 100, 50, 50), new[] { new Rectangle(153, 50, 40, 40) }, 6, vertical, horizontal);
+
+        Assert.Equal(new Point(3, 0), delta);
+        Assert.Equal(new[] { 153 }, vertical);
+        Assert.Empty(horizontal);
+    }
+
+    [Fact]
+    public void SnapToEdges_ReportsGuidesForAlreadyCenteredAreasAndIgnoresFarOnes()
+    {
+        var vertical = new List<int>();
+        var horizontal = new List<int>();
+
+        Assert.Equal(Point.Empty, Geometry.SnapToEdges(new Rectangle(0, 0, 40, 40), new[] { new Rectangle(10, 100, 20, 10) }, 6, vertical, horizontal));
+        Assert.Equal(new[] { 20 }, vertical);
+
+        vertical.Clear();
+        Assert.Equal(Point.Empty, Geometry.SnapToEdges(new Rectangle(0, 0, 40, 40), new[] { new Rectangle(300, 300, 20, 10) }, 6, vertical, horizontal));
+        Assert.Empty(vertical);
     }
 }

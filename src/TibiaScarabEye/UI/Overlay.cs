@@ -57,6 +57,13 @@ internal sealed class Overlay : Form {
         } finally { changingMode=false; }
         Render(); Invalidate();
     }
+    // Aplica um estado guardado (desfazer/refazer): recorte, nome, opacidade, camada e posição exata da janela.
+    public void Restore(RegionSpec state) {
+        Spec.Name=state.Name; Spec.X=state.X; Spec.Y=state.Y; Spec.W=state.W; Spec.H=state.H; Spec.Opacity=state.Opacity; Spec.Hidden=state.Hidden; Spec.Locked=state.Locked;
+        Bounds=new Rectangle(state.Left,state.Top+(locked?Bar:0),state.Width+2*Border,state.Height+(locked?0:Bar)+2*Border);
+        CaptureSpec(); ApplyStyle(); Render(); Invalidate();
+    }
+    public void BringToTop() { if(IsHandleCreated) Native.BringToTop(Handle); }
     public void CaptureSpec() { Spec.Left=Left; Spec.Top=Top-(locked?Bar:0); Spec.Width=ClientSize.Width-2*Border; Spec.Height=ClientSize.Height-(locked?0:Bar)-2*Border; }
     public void UpdateRegion(RegionSpec edited) {
         edited.Validate();

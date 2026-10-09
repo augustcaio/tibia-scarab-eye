@@ -61,7 +61,23 @@ cancelar). Também abre com duplo clique na lista.
 - Roda do mouse: zoom. Segure Espaço (como no Photoshop), o botão do meio ou o
   direito e arraste para mover a visão.
 - O contorno dourado é a overlay selecionada; o tracejado ciano é o recorte
-  de origem dela. Delete ou "Remover área" apaga; o campo Nome renomeia.
+  de origem dela. Cinza pontilhado é camada escondida; azul claro, camada
+  travada. Delete ou Remover apaga; o campo Nome renomeia.
+- Camadas (painel à direita, de cima para baixo): o olho esconde a camada (ela
+  não aparece na tela nem no OBS), o cadeado trava (não move nem apaga). Subir e
+  Descer mudam a ordem; a última da lista fica por cima. A ordem, o olho e o
+  cadeado ficam salvos no layout.
+- Seleção múltipla: Ctrl + clique alterna, Shift + clique soma, Shift + arrastar
+  no vazio seleciona o que o retângulo toca, Ctrl + A seleciona tudo. As áreas
+  selecionadas se movem juntas. Esq., Centro, Dir., Topo, Meio e Base alinham as
+  áreas selecionadas entre si; Dist. H e Dist. V igualam os vãos (3 ou mais).
+- Guias: ao arrastar, bordas e centros se prendem aos das outras áreas a poucos
+  pixels, e uma linha rosa mostra o alinhamento. Alt ao arrastar desliga as
+  guias e a grade.
+- Ctrl + Z desfaz e Ctrl + Y (ou Ctrl + Shift + Z) refaz; vale criar, mover,
+  editar recorte, ordem, olho, cadeado, opacidade, duplicar e apagar. O histórico
+  vale enquanto o editor está aberto. Ctrl + D duplica. A posição do pixel sob o
+  mouse aparece no rodapé.
 Nada aparece sobre o jogo até você clicar em Travar para jogar.
 Tamanho e opacidade: ajustes da área selecionada.
 Salvar layout / Abrir layout: arquivos JSON.
