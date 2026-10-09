@@ -52,8 +52,8 @@ ao vivo com a grade sobre a área do mapa. Arraste cada área; ela se encaixa na
 grade (segure Alt para mover sem grade). Setas movem uma célula e Shift + setas
 movem 1 pixel. Aplicar posições grava os lugares; Cancelar descarta. Nada
 aparece sobre o jogo até você clicar em Travar para jogar.
-Definir mapa: delimita a área de jogo onde a grade é desenhada; o campo
-numérico controla a célula em pixels. Sem mapa, a grade cobre a janela inteira.
+Definir mapa: delimita a área de jogo onde a grade (células de 8 pixels) é
+desenhada. Sem mapa, a grade cobre a janela inteira.
 Tamanho e opacidade: ajustes da área selecionada.
 Salvar layout / Abrir layout: arquivos JSON.
 

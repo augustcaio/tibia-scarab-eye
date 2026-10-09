@@ -13,7 +13,7 @@ namespace TibiaScarabEye.Tests.Desktop;
 [Trait("Category", "Desktop")]
 public class PlannerTests
 {
-    private const int Cell = 32;
+    private const int Cell = Planner.CellPixels;
 
     // Overlay pronta (janela criada, nao exibida) 100 px dentro do canto da janela de origem.
     private static Overlay NewOverlay(SourceWindow source, string name, int offsetX, int offsetY)
@@ -41,7 +41,7 @@ public class PlannerTests
         using var source = new SourceWindow();
         using var overlay = NewOverlay(source, "Vida", 100, 100);
         var window = Native.ThumbnailBounds(source.Handle);
-        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, Cell, 0);
+        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, 0);
         ShowOffscreen(planner);
 
         Point from = ViewPoint(planner, overlay, source, 4);
@@ -65,7 +65,7 @@ public class PlannerTests
         using var source = new SourceWindow();
         using var overlay = NewOverlay(source, "Vida", 100, 100);
         Rectangle before = overlay.Bounds;
-        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, Cell, 0);
+        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, 0);
         ShowOffscreen(planner);
 
         Point from = ViewPoint(planner, overlay, source, 4);
@@ -84,7 +84,7 @@ public class PlannerTests
         using var source = new SourceWindow();
         using var overlay = NewOverlay(source, "Vida", 100, 100);
         var window = Native.ThumbnailBounds(source.Handle);
-        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, Cell, 0);
+        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, 0);
         ShowOffscreen(planner);
 
         Point from = ViewPoint(planner, overlay, source, 4);
@@ -103,7 +103,7 @@ public class PlannerTests
         using var source = new SourceWindow();
         using var overlay = NewOverlay(source, "Vida", 96, 96);
         var window = Native.ThumbnailBounds(source.Handle);
-        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, Cell, 0);
+        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, 0);
         ShowOffscreen(planner);
 
         Message message = default;
@@ -121,7 +121,7 @@ public class PlannerTests
         using var source = new SourceWindow();
         using var overlay = NewOverlay(source, "Vida", -3000, -3000);
         var window = Native.ThumbnailBounds(source.Handle);
-        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, Cell, 0);
+        using var planner = new Planner(source.Handle, new List<Overlay> { overlay }, null, 0);
         ShowOffscreen(planner);
 
         Click(planner, "Aplicar posições");

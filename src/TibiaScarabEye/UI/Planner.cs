@@ -15,10 +15,11 @@ internal sealed class Planner : Form {
         public Rectangle Original, Rect;
         public Thumbnail Thumb;
     }
+    // Grade densa e fixa: 8 px de célula deixam posicionar com precisão sem um controle a mais na janela principal.
+    internal const int CellPixels=8;
     readonly IntPtr source;
     readonly IList<Overlay> overlays;
     readonly RegionSpec map;
-    readonly int cell;
     readonly List<Item> items=new List<Item>();
     readonly PlanAdorner adorner=new PlanAdorner();
     readonly Button apply, cancel;
@@ -29,13 +30,13 @@ internal sealed class Planner : Form {
     Item selected, dragging;
     Point grabOffset;
     public bool Moved { get; private set; }
-    public Planner(IntPtr src,IList<Overlay> areas,RegionSpec mapRegion,int cellPixels,int selectedIndex) {
-        source=src; overlays=areas; map=mapRegion; cell=cellPixels;
+    public Planner(IntPtr src,IList<Overlay> areas,RegionSpec mapRegion,int selectedIndex) {
+        source=src; overlays=areas; map=mapRegion;
         Theme.Apply(this); Text="Posicionar áreas • Tibia Scarab Eye";
         Size=new Size(1060,740); MinimumSize=new Size(760,480); StartPosition=FormStartPosition.CenterParent;
         Controls.Add(Theme.Label("Arraste as áreas para posicioná-las no jogo. Elas só aparecem na tela no modo jogo.",20,16,1000,26,false));
         Controls.Add(Theme.Label(map!=null
-            ?"Grade de "+cell+" px sobre a área do mapa. Segure Alt para mover sem prender na grade."
+            ?"Grade de "+CellPixels+" px sobre a área do mapa. Segure Alt para mover sem prender na grade."
             :"Sem mapa definido: a grade cobre a janela inteira. Use Definir mapa no painel principal para alinhá-la à área de jogo.",20,44,1000,24,true));
         apply=Theme.Button("Aplicar posições",20,0,190,true); apply.Anchor=AnchorStyles.Bottom|AnchorStyles.Left; apply.Click+=delegate { Apply(); }; Controls.Add(apply);
         cancel=Theme.Button("Cancelar",224,0,120,false); cancel.Anchor=apply.Anchor; cancel.Click+=delegate { DialogResult=DialogResult.Cancel; }; Controls.Add(cancel); CancelButton=cancel;
@@ -89,8 +90,8 @@ internal sealed class Planner : Form {
     }
     void Mark() {
         var marks=new PlanAdorner.Mark[items.Count];
-        for(int i=0;i<marks.Length;i++) marks[i]=new PlanAdorner.Mark { Rect=ToView(items[i].Rect), Name=items[i].Overlay.Spec.Name, Selected=items[i]==selected };
-        adorner.Update(preview,ToView(grid),cell*ViewScale,marks);
+        for(int i=0;i<marks.Length;i++) marks[i]=new PlanAdorner.Mark { Rect=ToView(items[i].Rect), Selected=items[i]==selected };
+        adorner.Update(preview,ToView(grid),CellPixels*ViewScale,marks);
     }
     void PositionAdorner() { if(IsHandleCreated && !adorner.IsDisposed) adorner.Bounds=RectangleToScreen(ClientRectangle); }
 
@@ -109,7 +110,7 @@ internal sealed class Planner : Form {
     void Drag(Point p) {
         Point at=ToWindow(p), target=new Point(at.X-grabOffset.X,at.Y-grabOffset.Y);
         var size=dragging.Rect.Size;
-        if((ModifierKeys&Keys.Alt)==0 && new Rectangle(target,size).IntersectsWith(grid)) target=Geometry.SnapToGrid(target,grid,cell);
+        if((ModifierKeys&Keys.Alt)==0 && new Rectangle(target,size).IntersectsWith(grid)) target=Geometry.SnapToGrid(target,grid,CellPixels);
         Place(dragging,target);
     }
     void Place(Item item,Point location) {
@@ -117,7 +118,7 @@ internal sealed class Planner : Form {
         DrawItem(item); Mark();
     }
     protected override bool ProcessCmdKey(ref Message msg,Keys keyData) {
-        int step=(keyData&Keys.Shift)!=0?1:cell, dx=0, dy=0;
+        int step=(keyData&Keys.Shift)!=0?1:CellPixels, dx=0, dy=0;
         switch(keyData&Keys.KeyCode) {
             case Keys.Left: dx=-step; break;
             case Keys.Right: dx=step; break;

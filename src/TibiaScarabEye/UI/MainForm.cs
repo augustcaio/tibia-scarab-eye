@@ -13,7 +13,6 @@ internal sealed class MainForm : FramelessForm {
     readonly ComboBox windows=new ComboBox(), zoom=new ComboBox();
     readonly ListBox areas=new ListBox();
     readonly TrackBar opacity=new TrackBar();
-    readonly NumericUpDown gridCell=new NumericUpDown();
     readonly Label status, detail, opacityLabel;
     readonly Button mode;
     readonly Button edit, visibility;
@@ -35,11 +34,10 @@ internal sealed class MainForm : FramelessForm {
 
         windows.DropDownStyle=ComboBoxStyle.DropDownList; windows.Anchor=AnchorStyles.Left|AnchorStyles.Right; windows.Margin=new Padding(0,0,8,0);
         zoom.DropDownStyle=ComboBoxStyle.DropDownList; zoom.Items.AddRange(new object[]{"50%","75%","100%","125%","150%","200%","300%"}); zoom.Width=110; zoom.Anchor=AnchorStyles.Left|AnchorStyles.Right; zoom.Margin=new Padding(0,0,0,6);
-        gridCell.Minimum=8; gridCell.Maximum=128; gridCell.Increment=8; gridCell.Value=32; gridCell.Width=70; gridCell.Anchor=AnchorStyles.Left; gridCell.Margin=new Padding(0,0,0,6);
         areas.BorderStyle=BorderStyle.FixedSingle; areas.ItemHeight=26; areas.IntegralHeight=false; areas.Dock=DockStyle.Fill; areas.Margin=Padding.Empty; areas.MinimumSize=new Size(0,60);
         opacity.AutoSize=false; opacity.BackColor=Theme.Background; opacity.Height=30; opacity.Width=110; opacity.Anchor=AnchorStyles.Left|AnchorStyles.Right; opacity.Margin=new Padding(0,0,0,6);
         opacity.Minimum=20; opacity.Maximum=100; opacity.Value=100; opacity.TickFrequency=20;
-        foreach(Control c in new Control[]{windows,zoom,gridCell,areas}) Theme.Style(c);
+        foreach(Control c in new Control[]{windows,zoom,areas}) Theme.Style(c);
 
         var refresh=Theme.Button("Atualizar",false); refresh.Anchor=AnchorStyles.Left|AnchorStyles.Right; refresh.Width=90; refresh.Click+=delegate { RefreshWindows(); };
         var sourceRow=Table(Columns(AutoColumn(),PercentColumn(100),AutoColumn()),Theme.Caption("Janela do Tibia"),windows,refresh);
@@ -57,10 +55,9 @@ internal sealed class MainForm : FramelessForm {
 
         opacityLabel=Theme.Caption("Opacidade: 100%"); opacityLabel.MinimumSize=new Size(TextRenderer.MeasureText("Opacidade: 100%",Font).Width+2,0);
         var mapButton=Theme.Button("Definir mapa",false); mapButton.Anchor=AnchorStyles.Left|AnchorStyles.Right; mapButton.Click+=delegate { DefineMapArea(); };
-        var gridCaption=Theme.Caption("Grade (px)");
-        tips.SetToolTip(gridCaption,"Tamanho da célula da grade do mapa, em pixels"); tips.SetToolTip(gridCell,"Tamanho da célula da grade do mapa, em pixels"); tips.SetToolTip(mapButton,"Define a área do jogo onde a grade do mapa é desenhada");
+        tips.SetToolTip(mapButton,"Define a área do jogo onde a grade do planejador é desenhada");
         obsCapture=Theme.Button("Sincronizar com OBS",true); obsCapture.Anchor=AnchorStyles.Left|AnchorStyles.Right; obsCapture.Margin=new Padding(0,6,0,0); obsCapture.Click+=delegate { ToggleObsOutput(); };
-        var fields=Table(Columns(AutoColumn(),PercentColumn(100)),Theme.Caption("Tamanho"),zoom,opacityLabel,opacity,gridCaption,gridCell);
+        var fields=Table(Columns(AutoColumn(),PercentColumn(100)),Theme.Caption("Tamanho"),zoom,opacityLabel,opacity);
         side=Table(Columns(PercentColumn(100)),fields,mapButton,obsCapture); side.Dock=DockStyle.Top; var right=side;
         var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
         main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
@@ -87,7 +84,6 @@ internal sealed class MainForm : FramelessForm {
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { EditArea(); };
-        gridCell.ValueChanged+=delegate { dirty=true; };
         zoom.SelectedIndexChanged+=delegate { if(binding || Selected==null || zoom.SelectedIndex<0) return; Safe(delegate { Selected.Zoom(new double[]{.5,.75,1,1.25,1.5,2,3}[zoom.SelectedIndex]); dirty=true; }); };
         opacity.ValueChanged+=delegate { opacityLabel.Text="Opacidade: "+opacity.Value+"%"; if(!binding && Selected!=null) { Selected.Spec.Opacity=opacity.Value; Selected.ApplyStyle(); dirty=true; } };
         windows.SelectedIndexChanged+=delegate {
@@ -180,7 +176,7 @@ internal sealed class MainForm : FramelessForm {
         if(!Ready()) return;
         if(locked) ToggleMode();
         Safe(delegate {
-            using(var planner=new Planner(source,overlays,mapRegion,(int)gridCell.Value,areas.SelectedIndex))
+            using(var planner=new Planner(source,overlays,mapRegion,areas.SelectedIndex))
                 if(planner.ShowDialog(this)==DialogResult.OK && planner.Moved) dirty=true;
         });
     }
@@ -269,7 +265,7 @@ internal sealed class MainForm : FramelessForm {
         using(var dialog=new SaveFileDialog { Filter="Layout Tibia Scarab Eye (*.json)|*.json", FileName="Meu layout.json", Title="Salvar layout" }) {
             if(dialog.ShowDialog(this)!=DialogResult.OK) return false;
             try {
-                var layout=new Layout { SourceTitle=sourceTitle,MapRegion=mapRegion,GridCellPixels=(int)gridCell.Value };
+                var layout=new Layout { SourceTitle=sourceTitle,MapRegion=mapRegion };
                 foreach(var overlay in overlays) { overlay.CaptureSpec(); layout.Regions.Add(overlay.Spec); }
                 layout.Save(dialog.FileName); dirty=false; status.Text="Layout salvo em "+dialog.FileName; return true;
             } catch(Exception ex) { MessageBox.Show(this,"Não foi possível salvar.\n"+ex.Message); return false; }
@@ -289,7 +285,7 @@ internal sealed class MainForm : FramelessForm {
                 var layout=Layouts.Layout.Load(dialog.FileName);
                 if(!CanReplace()) return;
                 ClearOverlays();
-                mapRegion=layout.MapRegion; gridCell.Value=Math.Max(gridCell.Minimum,Math.Min(gridCell.Maximum,layout.GridCellPixels));
+                mapRegion=layout.MapRegion;
                 try { foreach(var spec in layout.Regions) CreateOverlay(spec); dirty=false; }
                 catch { dirty=overlays.Count>0; throw; }
                 status.Text="Layout aberto na janela selecionada. Confira os recortes se a resolução mudou.";
