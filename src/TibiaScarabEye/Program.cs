@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using TibiaScarabEye.UI;
 
 namespace TibiaScarabEye;
 
@@ -9,6 +10,7 @@ internal static class Program
     private static void Main()
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new Form { Text = "Tibia Scarab Eye" });
+        Application.ThreadException += delegate(object s, System.Threading.ThreadExceptionEventArgs e) { MessageBox.Show("A operação não pôde ser concluída.\n" + e.Exception.Message, "Tibia Scarab Eye"); };
+        Application.Run(new MainForm());
     }
 }
