@@ -7,6 +7,7 @@ internal sealed class SelectionAdorner : Adorner {
     internal Rectangle Preview { get; private set; }
     internal Rectangle Selection { get; private set; }
     internal Point? Pointer { get; private set; }
+    internal SelectionAdorner() { BackColor=Color.Magenta; TransparencyKey=Color.Magenta; }
     internal void UpdateGuides(Rectangle preview,Rectangle selection,Point? pointer) {
         Preview=preview; Selection=selection; Pointer=pointer; Invalidate();
     }
