@@ -21,7 +21,6 @@ internal static class Native {
         [MarshalAs(UnmanagedType.Bool)] public bool Visible;
         [MarshalAs(UnmanagedType.Bool)] public bool ClientOnly;
     }
-    [StructLayout(LayoutKind.Sequential)] internal struct BlendFunction { public byte Op, Flags, SourceConstantAlpha, AlphaFormat; }
     internal delegate bool EnumProc(IntPtr h, IntPtr p);
     [DllImport("user32.dll")] internal static extern bool EnumWindows(EnumProc cb, IntPtr p);
     [DllImport("user32.dll")] internal static extern bool IsWindowVisible(IntPtr h);
@@ -37,29 +36,6 @@ internal static class Native {
     [DllImport("user32.dll")] internal static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
     [DllImport("user32.dll")] internal static extern bool RegisterHotKey(IntPtr h, int id, uint modifiers, uint key);
     [DllImport("user32.dll")] internal static extern bool UnregisterHotKey(IntPtr h, int id);
-    [DllImport("user32.dll")] static extern bool UpdateLayeredWindow(IntPtr h, IntPtr destination, ref PointI position, ref SizeI size, IntPtr source, ref PointI origin, int key, ref BlendFunction blend, int flags);
-    [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr h);
-    [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr h, IntPtr dc);
-    [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleDC(IntPtr dc);
-    [DllImport("gdi32.dll")] static extern IntPtr SelectObject(IntPtr dc, IntPtr gdiObject);
-    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr gdiObject);
-    [DllImport("gdi32.dll")] static extern bool DeleteDC(IntPtr dc);
-    // Mostra o bitmap (ARGB) como a imagem da janela layered, com transparência por pixel, na posição de tela indicada.
-    internal static void PresentLayered(IntPtr window, Bitmap bitmap, Point location) {
-        IntPtr screen=GetDC(IntPtr.Zero), memory=CreateCompatibleDC(screen), hbitmap=IntPtr.Zero, previous=IntPtr.Zero;
-        try {
-            hbitmap=bitmap.GetHbitmap(Color.FromArgb(0)); previous=SelectObject(memory,hbitmap);
-            var size=new SizeI { Width=bitmap.Width, Height=bitmap.Height };
-            var position=new PointI { X=location.X, Y=location.Y };
-            var origin=new PointI();
-            var blend=new BlendFunction { Op=0, Flags=0, SourceConstantAlpha=255, AlphaFormat=1 };
-            UpdateLayeredWindow(window,screen,ref position,ref size,memory,ref origin,0,ref blend,2);
-        } finally {
-            if(previous!=IntPtr.Zero) SelectObject(memory,previous);
-            if(hbitmap!=IntPtr.Zero) DeleteObject(hbitmap);
-            DeleteDC(memory); ReleaseDC(IntPtr.Zero,screen);
-        }
-    }
     internal const int DWMWA_EXTENDED_FRAME_BOUNDS=9;
     internal static Rect ExtendedFrameBounds(IntPtr h) {
         Rect rect;
