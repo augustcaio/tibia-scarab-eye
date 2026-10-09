@@ -21,13 +21,12 @@ internal sealed class MainForm : FramelessForm {
     ObsBridge obsOutput;
     readonly List<Overlay> overlays=new List<Overlay>();
     readonly Timer timer=new Timer();
-    RegionSpec mapRegion;
     IntPtr source;
     string sourceTitle="";
     bool locked, binding, dirty, hotkey, visibilityHotkey, overlaysHidden;
     readonly ToolTip tips=new ToolTip();
     const int BodyRow=1, MinClientWidth=580;
-    readonly TableLayoutPanel layout, body, side;
+    readonly TableLayoutPanel layout, body, side, listColumn;
     public MainForm() {
         Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
          StartPosition=FormStartPosition.CenterScreen;
@@ -50,15 +49,13 @@ internal sealed class MainForm : FramelessForm {
         var tools=Table(Columns(PercentColumn(34),PercentColumn(33),PercentColumn(33)),add,edit,remove);
         var position=Theme.Button("Posicionar áreas",false); position.Anchor=AnchorStyles.Left|AnchorStyles.Right; position.Margin=new Padding(0,6,0,0); position.Click+=delegate { PositionAreas(); };
         tips.SetToolTip(position,"Abre o planejador: posicione as áreas sobre a prévia do jogo antes de elas aparecerem na tela");
-        var left=Table(Columns(PercentColumn(100)),tools,areas,position);
+        var left=listColumn=Table(Columns(PercentColumn(100)),tools,areas,position);
         left.RowStyles[1]=new RowStyle(SizeType.Percent,100); left.Margin=new Padding(0,0,12,0);
 
         opacityLabel=Theme.Caption("Opacidade: 100%"); opacityLabel.MinimumSize=new Size(TextRenderer.MeasureText("Opacidade: 100%",Font).Width+2,0);
-        var mapButton=Theme.Button("Definir mapa",false); mapButton.Anchor=AnchorStyles.Left|AnchorStyles.Right; mapButton.Click+=delegate { DefineMapArea(); };
-        tips.SetToolTip(mapButton,"Define a área do jogo onde a grade do planejador é desenhada");
         obsCapture=Theme.Button("Sincronizar com OBS",true); obsCapture.Anchor=AnchorStyles.Left|AnchorStyles.Right; obsCapture.Margin=new Padding(0,6,0,0); obsCapture.Click+=delegate { ToggleObsOutput(); };
         var fields=Table(Columns(AutoColumn(),PercentColumn(100)),Theme.Caption("Tamanho"),zoom,opacityLabel,opacity);
-        side=Table(Columns(PercentColumn(100)),fields,mapButton,obsCapture); side.Dock=DockStyle.Top; var right=side;
+        side=Table(Columns(PercentColumn(100)),fields,obsCapture); side.Dock=DockStyle.Top; var right=side;
         var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
         main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
 
@@ -100,7 +97,7 @@ internal sealed class MainForm : FramelessForm {
     }
     void FitMinimumSize() {
         int minWidth=LogicalToDeviceUnits(MinClientWidth), width=ClientSize.Width, height=ClientSize.Height;
-        int need=side.GetPreferredSize(Size.Empty).Height+body.Margin.Vertical, minHeight=LogicalToDeviceUnits(300);
+        int need=Math.Max(side.GetPreferredSize(Size.Empty).Height,ListColumnNeed())+body.Margin.Vertical, minHeight=LogicalToDeviceUnits(300);
         for(int pass=0;pass<5;pass++) {
             ClientSize=new Size(minWidth,minHeight); PerformLayout(); PerformLayout();
             int shortfall=need-layout.GetRowHeights()[BodyRow];
@@ -109,6 +106,12 @@ internal sealed class MainForm : FramelessForm {
         }
         MinimumSize=SizeFromClientSize(new Size(minWidth,minHeight));
         ClientSize=new Size(width,Math.Max(height,minHeight));
+    }
+    // A lista é a linha que estica, então conta pelo mínimo dela; os demais controles da coluna, pelo tamanho que pedem.
+    int ListColumnNeed() {
+        int need=0;
+        foreach(Control c in listColumn.Controls) need+=(c==areas?areas.MinimumSize.Height:c.GetPreferredSize(Size.Empty).Height)+c.Margin.Vertical;
+        return need;
     }
     static ColumnStyle AutoColumn() { return new ColumnStyle(SizeType.AutoSize); }
     static ColumnStyle PercentColumn(float percent) { return new ColumnStyle(SizeType.Percent,percent); }
@@ -176,7 +179,7 @@ internal sealed class MainForm : FramelessForm {
         if(!Ready()) return;
         if(locked) ToggleMode();
         Safe(delegate {
-            using(var planner=new Planner(source,overlays,mapRegion,areas.SelectedIndex))
+            using(var planner=new Planner(source,overlays,areas.SelectedIndex))
                 if(planner.ShowDialog(this)==DialogResult.OK && planner.Moved) dirty=true;
         });
     }
@@ -200,14 +203,6 @@ internal sealed class MainForm : FramelessForm {
                 int index=overlays.IndexOf(overlay);
                 areas.Items[index]=overlay.Spec; areas.SelectedIndex=index;
                 dirty=true; BindSelection();
-            }
-        });
-    }
-    void DefineMapArea() {
-        if(!Ready()) return;
-        Safe(delegate {
-            using(var select=new Selector(source,mapRegion)) if(select.ShowDialog(this)==DialogResult.OK) {
-                mapRegion=select.Result; mapRegion.Name="Área do mapa"; dirty=true;
             }
         });
     }
@@ -265,7 +260,7 @@ internal sealed class MainForm : FramelessForm {
         using(var dialog=new SaveFileDialog { Filter="Layout Tibia Scarab Eye (*.json)|*.json", FileName="Meu layout.json", Title="Salvar layout" }) {
             if(dialog.ShowDialog(this)!=DialogResult.OK) return false;
             try {
-                var layout=new Layout { SourceTitle=sourceTitle,MapRegion=mapRegion };
+                var layout=new Layout { SourceTitle=sourceTitle };
                 foreach(var overlay in overlays) { overlay.CaptureSpec(); layout.Regions.Add(overlay.Spec); }
                 layout.Save(dialog.FileName); dirty=false; status.Text="Layout salvo em "+dialog.FileName; return true;
             } catch(Exception ex) { MessageBox.Show(this,"Não foi possível salvar.\n"+ex.Message); return false; }
@@ -285,7 +280,6 @@ internal sealed class MainForm : FramelessForm {
                 var layout=Layouts.Layout.Load(dialog.FileName);
                 if(!CanReplace()) return;
                 ClearOverlays();
-                mapRegion=layout.MapRegion;
                 try { foreach(var spec in layout.Regions) CreateOverlay(spec); dirty=false; }
                 catch { dirty=overlays.Count>0; throw; }
                 status.Text="Layout aberto na janela selecionada. Confira os recortes se a resolução mudou.";

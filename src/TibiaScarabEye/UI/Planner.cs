@@ -7,7 +7,7 @@ using TibiaScarabEye.Layouts;
 
 namespace TibiaScarabEye.UI;
 
-// Planejador: mostra a janela do jogo ao vivo, com a grade sobre a área do mapa, e deixa o usuário posicionar as overlays
+// Planejador: mostra a janela do jogo ao vivo, com a grade por cima, e deixa o usuário posicionar as overlays
 // antes de elas aparecerem na tela. Trabalha em coordenadas da janela de origem e só grava nas overlays ao aplicar.
 internal sealed class Planner : Form {
     sealed class Item {
@@ -19,25 +19,22 @@ internal sealed class Planner : Form {
     internal const int CellPixels=8;
     readonly IntPtr source;
     readonly IList<Overlay> overlays;
-    readonly RegionSpec map;
     readonly List<Item> items=new List<Item>();
     readonly PlanAdorner adorner=new PlanAdorner();
     readonly Button apply, cancel;
     readonly Label shortcuts;
     Thumbnail thumb;
     Size sourceSize;
-    Rectangle preview, grid;
+    Rectangle preview;
     Item selected, dragging;
     Point grabOffset;
     public bool Moved { get; private set; }
-    public Planner(IntPtr src,IList<Overlay> areas,RegionSpec mapRegion,int selectedIndex) {
-        source=src; overlays=areas; map=mapRegion;
+    public Planner(IntPtr src,IList<Overlay> areas,int selectedIndex) {
+        source=src; overlays=areas;
         Theme.Apply(this); Text="Posicionar áreas • Tibia Scarab Eye";
         Size=new Size(1060,740); MinimumSize=new Size(760,480); StartPosition=FormStartPosition.CenterParent;
         Controls.Add(Theme.Label("Arraste as áreas para posicioná-las no jogo. Elas só aparecem na tela no modo jogo.",20,16,1000,26,false));
-        Controls.Add(Theme.Label(map!=null
-            ?"Grade de "+CellPixels+" px sobre a área do mapa. Segure Alt para mover sem prender na grade."
-            :"Sem mapa definido: a grade cobre a janela inteira. Use Definir mapa no painel principal para alinhá-la à área de jogo.",20,44,1000,24,true));
+        Controls.Add(Theme.Label("Grade de "+CellPixels+" px sobre a janela do jogo. Segure Alt para mover sem prender na grade.",20,44,1000,24,true));
         apply=Theme.Button("Aplicar posições",20,0,190,true); apply.Anchor=AnchorStyles.Bottom|AnchorStyles.Left; apply.Click+=delegate { Apply(); }; Controls.Add(apply);
         cancel=Theme.Button("Cancelar",224,0,120,false); cancel.Anchor=apply.Anchor; cancel.Click+=delegate { DialogResult=DialogResult.Cancel; }; Controls.Add(cancel); CancelButton=cancel;
         shortcuts=Theme.Label("Setas: mover uma célula • Shift + setas: mover 1 px",360,0,600,26,true); shortcuts.Anchor=apply.Anchor; Controls.Add(shortcuts);
@@ -64,7 +61,6 @@ internal sealed class Planner : Form {
     Point ToWindow(Point p) { double s=ViewScale; return new Point((int)Math.Round((p.X-preview.Left)/s),(int)Math.Round((p.Y-preview.Top)/s)); }
 
     void LoadItems(int selectedIndex) {
-        grid=map!=null?map.Crop(sourceSize):new Rectangle(Point.Empty,sourceSize);
         var window=Native.ThumbnailBounds(source);
         for(int i=0;i<overlays.Count;i++) {
             var overlay=overlays[i];
@@ -91,7 +87,7 @@ internal sealed class Planner : Form {
     void Mark() {
         var marks=new PlanAdorner.Mark[items.Count];
         for(int i=0;i<marks.Length;i++) marks[i]=new PlanAdorner.Mark { Rect=ToView(items[i].Rect), Selected=items[i]==selected };
-        adorner.Update(preview,ToView(grid),CellPixels*ViewScale,marks);
+        adorner.Update(preview,CellPixels*ViewScale,marks);
     }
     void PositionAdorner() { if(IsHandleCreated && !adorner.IsDisposed) adorner.Bounds=RectangleToScreen(ClientRectangle); }
 
@@ -109,8 +105,7 @@ internal sealed class Planner : Form {
     }
     void Drag(Point p) {
         Point at=ToWindow(p), target=new Point(at.X-grabOffset.X,at.Y-grabOffset.Y);
-        var size=dragging.Rect.Size;
-        if((ModifierKeys&Keys.Alt)==0 && new Rectangle(target,size).IntersectsWith(grid)) target=Geometry.SnapToGrid(target,grid,CellPixels);
+        if((ModifierKeys&Keys.Alt)==0) target=Geometry.SnapToGrid(target,CellPixels);
         Place(dragging,target);
     }
     void Place(Item item,Point location) {

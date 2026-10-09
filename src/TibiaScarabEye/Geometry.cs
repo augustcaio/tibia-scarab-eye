@@ -11,10 +11,10 @@ internal static class Geometry {
         int w=Math.Max(1,(int)(source.Width*scale)), h=Math.Max(1,(int)(source.Height*scale));
         return new Rectangle(area.Left+(area.Width-w)/2,area.Top+(area.Height-h)/2,w,h);
     }
-    // Leva o canto superior esquerdo à linha de grade mais próxima; a grade começa no canto da área do mapa.
-    public static Point SnapToGrid(Point location,Rectangle grid,int cell) {
-        if(cell<1 || grid.IsEmpty) return location;
-        return new Point(grid.Left+(int)Math.Round((double)(location.X-grid.Left)/cell)*cell,grid.Top+(int)Math.Round((double)(location.Y-grid.Top)/cell)*cell);
+    // Leva o canto superior esquerdo à linha de grade mais próxima; a grade começa no canto da janela do jogo.
+    public static Point SnapToGrid(Point location,int cell) {
+        if(cell<1) return location;
+        return new Point((int)Math.Round((double)location.X/cell)*cell,(int)Math.Round((double)location.Y/cell)*cell);
     }
     // Mantém o retângulo dentro de uma área que começa em (0,0); se for maior que ela, fica no canto superior esquerdo.
     public static Rectangle ClampInside(Rectangle rect,Size bounds) {

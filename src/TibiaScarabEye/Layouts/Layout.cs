@@ -10,7 +10,6 @@ namespace TibiaScarabEye.Layouts;
     [DataMember] public int Version=1;
     [DataMember] public string SourceTitle;
     [DataMember] public bool ObsEnabled;
-    [DataMember] public RegionSpec MapRegion;
     [DataMember] public List<RegionSpec> Regions=new List<RegionSpec>();
     public static Layout Load(string path) {
         if (new FileInfo(path).Length>1024*1024) throw new InvalidDataException("Este arquivo é grande demais para ser um layout.");
