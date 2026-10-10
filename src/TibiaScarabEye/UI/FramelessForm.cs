@@ -8,11 +8,11 @@ namespace TibiaScarabEye.UI;
 
 // Janela sem a moldura do Windows. A borda de cima é a faixa de espinhos do fan kit do Tibia. Abaixo dela, o cabeçalho tem o
 // emblema do escaravelho à esquerda e, à direita, os botões da janela com o logo do Tibia logo abaixo; um divisor separa o
-// cabeçalho dos controles do programa. Mover, redimensionar, minimizar e fechar são desenhados aqui, pois não há barra de
+// cabeçalho dos controles do programa, e uma faixa no pé guarda o texto pequeno do canto inferior direito. Mover, redimensionar, minimizar e fechar são desenhados aqui, pois não há barra de
 // título nativa.
 internal abstract class FramelessForm : Form {
     // Valores lógicos (96 dpi); a janela converte para pixels do dispositivo.
-    const int StripHeight=22, HeaderTop=StripHeight+10, EmblemHeight=76, ContentTop=HeaderTop+EmblemHeight+24, Edge=8;
+    const int StripHeight=22, HeaderTop=StripHeight+10, EmblemHeight=76, ContentTop=HeaderTop+EmblemHeight+24, Edge=8, FooterHeight=18;
     const int CaptionButtonWidth=34, CaptionButtonHeight=26, TibiaLogoHeight=40, SideMargin=16;
     const int HitClient=1, HitCaption=2, HitLeft=10, HitRight=11, HitBottom=15, HitBottomLeft=16, HitBottomRight=17;
     const int WmNcHitTest=0x84, WmNcLButtonDblClk=0xA3, WmSysCommand=0x112, ScMaximize=0xF030, WsMinimizeBox=0x20000;
@@ -20,7 +20,7 @@ internal abstract class FramelessForm : Form {
     static readonly Font SmallFont=new Font("Segoe UI",8.25f);
     readonly CaptionButton minimize=new CaptionButton(CaptionGlyph.Minimize), close=new CaptionButton(CaptionGlyph.Close);
 
-    // Texto pequeno ao lado do emblema; o Tibia Scarab Eye usa para a data do executável, que denuncia um executável velho.
+    // Texto pequeno no canto inferior direito; o Tibia Scarab Eye usa para a data do executável, que denuncia um executável velho.
     protected string BandCaption="";
 
     protected FramelessForm() {
@@ -53,7 +53,7 @@ internal abstract class FramelessForm : Form {
     }
 
     protected override void OnLayout(LayoutEventArgs e) {
-        var padding=new Padding(Px(Edge),Px(ContentTop),Px(Edge),Px(Edge));
+        var padding=new Padding(Px(Edge),Px(ContentTop),Px(Edge),Px(Edge)+Px(FooterHeight));
         if(Padding!=padding) Padding=padding;
         base.OnLayout(e);
     }
@@ -85,8 +85,8 @@ internal abstract class FramelessForm : Form {
         var emblem=EmblemBounds;
         g.DrawImage(Emblem,emblem);
         g.DrawImage(TibiaLogo,TibiaLogoBounds);
-        int left=emblem.Right+Px(14), width=TibiaLogoBounds.Left-left-Px(12);
-        if(width>0) TextRenderer.DrawText(g,BandCaption,SmallFont,new Rectangle(left,emblem.Bottom-SmallFont.Height-Px(2),width,SmallFont.Height+Px(2)),Theme.Muted,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
+        int margin=Px(Edge)+Px(SideMargin);
+        TextRenderer.DrawText(g,BandCaption,SmallFont,new Rectangle(margin,ClientSize.Height-Px(Edge)-Px(FooterHeight)+Px(1),ClientSize.Width-2*margin,Px(FooterHeight)-Px(2)),Theme.Muted,TextFormatFlags.Right|TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
     }
     // A faixa de espinhos do fan kit forma a borda de cima; cópias espelhadas lado a lado emendam sem costura.
     void DrawThorns(Graphics g,Rectangle panel) {
