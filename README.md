@@ -43,7 +43,16 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
 - **Atalhos globais** que funcionam mesmo com o painel minimizado:
   `Ctrl + Shift + F8` alterna edição e jogo, `Ctrl + Shift + F9` mostra ou
   oculta as overlays na tela e no OBS.
-- **Salva e abre layouts** em arquivos JSON.
+- **Detecta o Tibia sozinho.** Não há janela para escolher: o programa acha o
+  cliente aberto e uma lâmpada na janela principal mostra o estado (vermelha
+  procurando, verde lendo com o nome do personagem, âmbar se o jogo está
+  minimizado).
+- **Presets por personagem, salvos sozinhos.** Cada preset é um conjunto de
+  áreas com nome, ligado a um personagem ou a todos. Ao entrar com um
+  personagem, volta o último preset dele. Tudo que você muda no editor fica
+  salvo, sem botão de salvar. Em **Opções** há duplicar, renomear, excluir,
+  exportar (este preset ou todos) e importar, que também abre os layouts
+  salvos pelas versões antigas.
 - **Sincroniza com o OBS.** As overlays aparecem na cena, acima da captura do
   jogo, e acompanham o que você muda no programa em cerca de 100 ms.
 
@@ -66,12 +75,28 @@ ficam sem imagem: o Tibia Scarab Eye não contorna bloqueios de captura.
 ## Requisitos
 
 - Windows 10 ou 11, x64
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
-  (x64). Para compilar, o .NET 8 SDK
+- Com o instalador, nada além disso: ele já traz o .NET. Para rodar a partir
+  da compilação, o [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+  (x64); para compilar, o .NET 8 SDK
 - OBS Studio (testado na versão 32.2.2) com uma fonte **Captura de jogo**
   mostrando o Tibia, direto na cena (fora de grupos)
 
 ## Começando
+
+### Instalar
+
+Baixe `TibiaScarabEye-Setup-<versão>.exe` na página de
+[Releases](https://github.com/augustcaio/tibia-scarab-eye/releases) e execute.
+Por padrão instala só para o seu usuário, sem pedir administrador, e cria o
+atalho no menu Iniciar.
+
+Se o OBS já foi aberto alguma vez neste computador, o instalador oferece
+**adicionar o script à lista de scripts do OBS**: ele registra
+`TibiaScarabEye.lua` em Ferramentas > Scripts, na coleção de cenas ativa, e o
+OBS passa a carregá-lo sozinho. O OBS precisa estar fechado nesse momento (o
+instalador avisa); a coleção ganha um backup `.scarab-eye.bak`. Ao desinstalar,
+o script sai da lista. Sem essa opção, o script fica na pasta `obs` da
+instalação (há um atalho no menu Iniciar) e se adiciona à mão, como abaixo.
 
 ### Compilar
 
@@ -80,11 +105,14 @@ dotnet build TibiaScarabEye.sln -c Release
 ```
 
 O executável sai em `artifacts\bin\TibiaScarabEye\release\TibiaScarabEye.exe`.
-Para gerar uma pasta pronta para distribuir:
+Para gerar o instalador (publica o programa autocontido e compila o instalador
+com o Inno Setup, baixado como pacote NuGet):
 
 ```powershell
-dotnet publish src\TibiaScarabEye -c Release -r win-x64 --self-contained false
+powershell -File installer\build.ps1 -Version 0.2.0
 ```
+
+O instalador sai em `installer\Output\TibiaScarabEye-Setup-<versão>.exe`.
 
 ### Testes
 
@@ -98,10 +126,11 @@ os testes que não dependem dela: `dotnet test --filter "Category!=Desktop"`.
 
 ### Usar no OBS
 
-1. Abra `TibiaScarabEye.exe`, escolha a janela do Tibia em **Janela do Tibia**
-   e abra o **Editor de áreas** para criar e posicionar suas áreas.
-2. No OBS, vá em **Ferramentas > Scripts**, clique em `+` e escolha
-   `obs/TibiaScarabEye.lua`.
+1. Abra o Tibia e depois o `TibiaScarabEye.exe`
+   e abra o **Editor de áreas** para criar e posicionar suas áreas. O Tibia é
+   detectado sozinho; a lâmpada no topo da janela mostra se está sendo lido.
+2. O script já está no OBS se você aceitou a opção do instalador. Se não, vá em
+   **Ferramentas > Scripts**, clique em `+` e escolha `obs/TibiaScarabEye.lua`.
 3. No programa, clique em **Sincronizar com OBS**. Os grupos
    `Tibia Scarab Eye xxxxxx` aparecem no topo da cena.
 4. Clique em **Travar para jogar** e jogue.
@@ -118,12 +147,13 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 |---|---|
 | `TibiaScarabEye.sln` | Solução com o aplicativo e os testes |
 | `src/TibiaScarabEye/` | Aplicativo (WinForms, .NET 8, x64) |
-| `src/TibiaScarabEye/Interop/` | P/Invoke e DWM. `Native.ThumbnailBounds` é a origem correta das coordenadas da miniatura |
-| `src/TibiaScarabEye/Layouts/` | `RegionSpec` e `Layout`: modelo e arquivo JSON dos layouts |
+| `src/TibiaScarabEye/Interop/` | P/Invoke e DWM. `Native.ThumbnailBounds` é a origem correta das coordenadas da miniatura; `TibiaLocator` acha o cliente do Tibia |
+| `src/TibiaScarabEye/Layouts/` | `RegionSpec`, `Preset` e `PresetStore` (presets por personagem, exportar e importar); `Layout` é o formato antigo, que ainda pode ser importado |
 | `src/TibiaScarabEye/Obs/` | `ObsBridge` publica o layout para o OBS a cada 100 ms |
 | `src/TibiaScarabEye/UI/` | Janela principal, editor de áreas, overlays e tema |
 | `tests/TibiaScarabEye.Tests/` | Testes xUnit (unitários e de desktop) |
 | `obs/TibiaScarabEye.lua` | Script do OBS: cria as overlays como grupos na cena |
+| `installer/` | Script do Inno Setup, `build.ps1` (gera o instalador) e `obs-script.ps1` (registra o script no OBS) |
 | `docs/LEIA-ME.txt` | Instruções de uso e instalação no OBS |
 | `Directory.Build.props`, `Directory.Packages.props`, `global.json` | Propriedades comuns, versões de pacotes e versão do SDK |
 
@@ -153,3 +183,9 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 ## Licença
 
 Todos os direitos do programa pertencem a [augustcaio](https://github.com/augustcaio). O repositório é público apenas para consulta. Veja [LICENSE](LICENSE).
+
+## Avisos
+
+Tibia é marca registrada da CipSoft GmbH. Este programa é um projeto de fã, sem
+vínculo com a CipSoft nem aprovação dela. Ele não usa imagens do jogo: as
+molduras e cores da interface são desenhadas pelo próprio programa.

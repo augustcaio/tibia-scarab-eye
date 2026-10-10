@@ -487,3 +487,6 @@ $RECYCLE.BIN/
 scratch/
 *.zip
 /dist/
+
+# Instalador gerado por installer/build.ps1
+installer/Output/

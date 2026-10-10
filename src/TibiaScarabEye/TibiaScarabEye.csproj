@@ -6,6 +6,13 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>TibiaScarabEye</RootNamespace>
     <AssemblyName>TibiaScarabEye</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>0.2.0</Version>
+    <Product>Tibia Scarab Eye</Product>
+    <Company>augustcaio</Company>
+    <Copyright>Copyright (c) 2026 augustcaio. Todos os direitos reservados.</Copyright>
+    <!-- A publicacao autocontida traz textos do .NET em dezenas de idiomas; o programa so usa o ingles do runtime. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- Gera ApplicationConfiguration.Initialize(). SystemAware: DPI do sistema, nao por monitor. -->
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
     <ApplicationVisualStyles>true</ApplicationVisualStyles>
@@ -13,7 +20,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Assets\logo.png" LogicalName="logo.png" />
   </ItemGroup>
 
   <ItemGroup>

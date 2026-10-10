@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Projeto so para baixar o compilador do Inno Setup (pacote NuGet Tools.InnoSetup) para o cache global do NuGet.
+       Nao e compilado nem entra na solucao; installer/build.ps1 chama dotnet restore nele. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tools.InnoSetup" />
+  </ItemGroup>
+
+</Project>
