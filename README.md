@@ -93,7 +93,7 @@ Para gerar o instalador (publica o programa autocontido e compila o instalador
 com o Inno Setup, baixado como pacote NuGet):
 
 ```powershell
-powershell -File installeruild.ps1 -Version 0.1.0
+powershell -File installer\build.ps1 -Version 0.1.0
 ```
 
 O instalador sai em `installer\Output\TibiaScarabEye-Setup-<versão>.exe`.
