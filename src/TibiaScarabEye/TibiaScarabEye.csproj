@@ -6,6 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>TibiaScarabEye</RootNamespace>
     <AssemblyName>TibiaScarabEye</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <!-- Gera ApplicationConfiguration.Initialize(). SystemAware: DPI do sistema, nao por monitor. -->
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
     <ApplicationVisualStyles>true</ApplicationVisualStyles>
@@ -14,6 +15,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Assets\logo.png" LogicalName="logo.png" />
+    <EmbeddedResource Include="Assets\emblem.png" LogicalName="emblem.png" />
+    <EmbeddedResource Include="Assets\thorns.png" LogicalName="thorns.png" />
   </ItemGroup>
 
   <ItemGroup>

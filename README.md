@@ -153,3 +153,13 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 ## Licença
 
 Todos os direitos do programa pertencem a [augustcaio](https://github.com/augustcaio). O repositório é público apenas para consulta. Veja [LICENSE](LICENSE).
+
+## Créditos e avisos
+
+Tibia é marca registrada da CipSoft GmbH. Este programa é um projeto de fã, sem
+vínculo com a CipSoft nem aprovação dela. O logo do Tibia e a faixa de espinhos
+da borda vêm do fan kit oficial e continuam sendo propriedade da CipSoft; o uso
+segue a política de vídeos e capturas de tela da CipSoft, incluída no fan kit,
+que permite usar esses elementos apenas para indicar a
+origem de vídeos e capturas e não permite distribuí-los separadamente. O emblema
+do escaravelho é a identidade do programa.

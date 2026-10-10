@@ -39,6 +39,16 @@ internal static class Native {
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
     // Põe a janela no topo da faixa das janelas topmost, sem mover, redimensionar nem ativar.
     internal static void BringToTop(IntPtr h) { SetWindowPos(h,new IntPtr(-1),0,0,0,0,0x13); }
+    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attribute, ref int value, int size);
+    static int ColorRef(Color c) { return c.R|(c.G<<8)|(c.B<<16); }
+    internal static void UseDarkTitleBar(IntPtr h, Color caption, Color text) {
+        try {
+            int on=1, back=ColorRef(caption), fore=ColorRef(text);
+            DwmSetWindowAttribute(h,20,ref on,4);   // DWMWA_USE_IMMERSIVE_DARK_MODE
+            DwmSetWindowAttribute(h,35,ref back,4); // DWMWA_CAPTION_COLOR (Windows 11)
+            DwmSetWindowAttribute(h,36,ref fore,4); // DWMWA_TEXT_COLOR (Windows 11)
+        } catch(EntryPointNotFoundException) { }
+    }
     internal const int DWMWA_EXTENDED_FRAME_BOUNDS=9;
     internal static Rect ExtendedFrameBounds(IntPtr h) {
         Rect rect;

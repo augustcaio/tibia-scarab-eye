@@ -10,10 +10,11 @@ using TibiaScarabEye.Obs;
 namespace TibiaScarabEye.UI;
 
 internal sealed class MainForm : FramelessForm {
-    readonly ComboBox windows=new ComboBox(), zoom=new ComboBox();
-    readonly ListBox areas=new ListBox();
-    readonly TrackBar opacity=new TrackBar();
+    readonly ComboBox windows=new ThemedComboBox(), zoom=new ThemedComboBox();
+    readonly ListBox areas=new ThemedListBox();
+    readonly GemSlider opacity=new GemSlider();
     readonly Label status, detail, opacityLabel;
+    readonly Label areasHint=new Label { Text="Nenhuma área ainda.\nAbra o editor e arraste sobre o jogo para criar a primeira.", ForeColor=Theme.Muted, BackColor=Theme.Surface, TextAlign=ContentAlignment.MiddleCenter, Dock=DockStyle.Fill };
     readonly Button mode;
     readonly Button visibility;
     readonly Button obsCapture;
@@ -28,7 +29,7 @@ internal sealed class MainForm : FramelessForm {
     const int BodyRow=1, MinClientWidth=580;
     readonly TableLayoutPanel layout, body, side, listColumn;
     public MainForm() {
-        Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
+        Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandSubtitle="Espelhe e reposicione partes do Tibia"; BandCaption="build "+BuildStamp();
          StartPosition=FormStartPosition.CenterScreen;
 
         windows.DropDownStyle=ComboBoxStyle.DropDownList; windows.Anchor=AnchorStyles.Left|AnchorStyles.Right; windows.Margin=new Padding(0,0,8,0);
@@ -47,13 +48,13 @@ internal sealed class MainForm : FramelessForm {
         editor.Click+=delegate { OpenEditor(); }; remove.Click+=delegate { RemoveArea(); };
         tips.SetToolTip(editor,"Cria e posiciona as áreas sobre a prévia do jogo, antes de elas aparecerem na tela"); tips.SetToolTip(remove,"Remover a área selecionada");
         var tools=Table(Columns(PercentColumn(70),PercentColumn(30)),editor,remove);
-        var left=listColumn=Table(Columns(PercentColumn(100)),tools,areas);
-        left.RowStyles[1]=new RowStyle(SizeType.Percent,100); left.Margin=new Padding(0,0,12,0);
+        var left=listColumn=Table(Columns(PercentColumn(100)),new SectionHeader("Áreas"),tools,areas);
+        left.RowStyles[2]=new RowStyle(SizeType.Percent,100); left.Margin=new Padding(0,0,12,0);
 
         opacityLabel=Theme.Caption("Opacidade: 100%"); opacityLabel.MinimumSize=new Size(TextRenderer.MeasureText("Opacidade: 100%",Font).Width+2,0);
-        obsCapture=Theme.Button("Sincronizar com OBS",true); obsCapture.Anchor=AnchorStyles.Left|AnchorStyles.Right; obsCapture.Margin=new Padding(0,6,0,0); obsCapture.Click+=delegate { ToggleObsOutput(); };
+        obsCapture=Theme.Button("Sincronizar com OBS",false); obsCapture.Anchor=AnchorStyles.Left|AnchorStyles.Right; obsCapture.Margin=new Padding(0,6,0,0); obsCapture.Click+=delegate { ToggleObsOutput(); };
         var fields=Table(Columns(AutoColumn(),PercentColumn(100)),Theme.Caption("Tamanho"),zoom,opacityLabel,opacity);
-        side=Table(Columns(PercentColumn(100)),fields,obsCapture); side.Dock=DockStyle.Top; var right=side;
+        side=Table(Columns(PercentColumn(100)),new SectionHeader("Ajustes"),fields,obsCapture); side.Dock=DockStyle.Top; var right=side;
         var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
         main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
 
@@ -79,6 +80,7 @@ internal sealed class MainForm : FramelessForm {
 
         areas.SelectedIndexChanged+=delegate { BindSelection(); };
         areas.DoubleClick+=delegate { OpenEditor(); };
+        areas.Controls.Add(areasHint); areasHint.DoubleClick+=delegate { OpenEditor(); };
         zoom.SelectedIndexChanged+=delegate { if(binding || Selected==null || zoom.SelectedIndex<0) return; Safe(delegate { Selected.Zoom(new double[]{.5,.75,1,1.25,1.5,2,3}[zoom.SelectedIndex]); dirty=true; }); };
         opacity.ValueChanged+=delegate { opacityLabel.Text="Opacidade: "+opacity.Value+"%"; if(!binding && Selected!=null) { Selected.Spec.Opacity=opacity.Value; Selected.ApplyStyle(); dirty=true; } };
         windows.SelectedIndexChanged+=delegate {
@@ -205,7 +207,7 @@ internal sealed class MainForm : FramelessForm {
         BindSelection();
     }
     void BindSelection() {
-        binding=true; zoom.Enabled=opacity.Enabled=Selected!=null;
+        binding=true; zoom.Enabled=opacity.Enabled=Selected!=null; areasHint.Visible=overlays.Count==0;
         obsCapture.Enabled=overlays.Count>0;
         zoom.SelectedIndex=-1;
         if(Selected!=null) opacity.Value=Selected.Spec.Opacity;
@@ -222,7 +224,7 @@ internal sealed class MainForm : FramelessForm {
         });
     }
     void UpdateStatus() {
-        status.Text=hotkey?"Ctrl + Shift + F8: travar / editar"+(visibilityHotkey?" · F9: mostrar / ocultar":"")+".":"Atalho indisponível. Use o botão Travar para jogar.";
+        status.Text=hotkey?"Ctrl + Shift + F8 trava e edita"+(visibilityHotkey?"; F9 mostra e oculta":"")+".":"Atalho indisponível. Use o botão Travar para jogar.";
         if(overlaysHidden) status.Text="Overlays ocultas. Ctrl + Shift + F9 ou Mostrar overlays para restaurar.";
         if(!visibilityHotkey) status.Text+="\nF9 indisponível: use o botão Mostrar/Ocultar overlays.";
         if(source==IntPtr.Zero) status.Text="Nenhuma janela selecionada. Abra o jogo e clique em Atualizar.";

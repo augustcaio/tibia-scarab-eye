@@ -1,69 +1,52 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace TibiaScarabEye.UI;
 
+// Identidade visual: laca verde-azulada escura (o interior dos painéis do fan kit do Tibia), ouro dos arabescos como
+// único acento de ação e o vermelho da gema como alerta. Segoe UI nos controles; Georgia nos títulos, que ecoa a
+// serifa do jogo.
 internal static class Theme {
-    public static readonly Color Background=Color.FromArgb(53,53,51), Surface=Color.FromArgb(69,69,66), Ink=Color.FromArgb(230,230,220), Muted=Color.FromArgb(192,192,181), Gold=Color.FromArgb(215,207,173);
-    static readonly Bitmap Stone=MakeStone();
-    static Bitmap MakeStone() {
-        var bitmap=new Bitmap(96,96); var random=new System.Random(71);
-        for(int y=0;y<96;y++) for(int x=0;x<96;x++) { int shade=53+random.Next(-5,6)+((x+y)%13==0?3:0); bitmap.SetPixel(x,y,Color.FromArgb(shade,shade,shade-2)); }
-        return bitmap;
-    }
+    public static readonly Color
+        Background=Color.FromArgb(14,20,22), Surface=Color.FromArgb(22,31,34), Raised=Color.FromArgb(32,45,49), Line=Color.FromArgb(46,62,67),
+        Teal=Color.FromArgb(14,62,63), Ink=Color.FromArgb(233,228,210), Muted=Color.FromArgb(150,164,164),
+        Gold=Color.FromArgb(235,192,98), GoldMid=Color.FromArgb(198,122,37), GoldDark=Color.FromArgb(145,63,18), Danger=Color.FromArgb(208,58,44);
+    public static readonly Font Body=new Font("Segoe UI",9f);
     public static void Apply(Form f) {
-        f.Font=new Font("Tahoma",9); f.BackColor=Background; f.BackgroundImage=Stone; f.BackgroundImageLayout=ImageLayout.Tile; f.ForeColor=Ink; f.AutoScaleMode=AutoScaleMode.Dpi;
+        f.Font=Body; f.BackColor=Background; f.ForeColor=Ink; f.AutoScaleMode=AutoScaleMode.Dpi;
         f.ControlAdded+=delegate(object sender,ControlEventArgs e) { Style(e.Control); };
     }
     // ControlAdded só dispara para filhos diretos do form; controles dentro de painéis chamam Style explicitamente.
     public static void Style(Control control) {
-        if(control is ComboBox || control is NumericUpDown || control is ListBox) {
-            control.BackColor=Color.FromArgb(39,39,37); control.ForeColor=Ink;
-            var combo=control as ComboBox;
-            if(combo!=null) {
-                combo.FlatStyle=FlatStyle.Flat; combo.DrawMode=DrawMode.OwnerDrawFixed;
-                combo.DrawItem+=delegate(object drawSender,DrawItemEventArgs item) {
-                    using(var brush=new SolidBrush((item.State&DrawItemState.Selected)!=0?Surface:Color.FromArgb(39,39,37))) item.Graphics.FillRectangle(brush,item.Bounds);
-                    string text=item.Index>=0?combo.GetItemText(combo.Items[item.Index]):combo.Text;
-                    TextRenderer.DrawText(item.Graphics,text,combo.Font,item.Bounds,Ink,TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis);
-                    item.DrawFocusRectangle();
-                };
-            }
-        }
+        if(control is NumericUpDown || control is ListBox) { control.BackColor=Surface; control.ForeColor=Ink; }
         if(control is CheckBox) control.BackColor=Color.Transparent;
     }
-    public static void Frame(Graphics g,Rectangle r) {
-        if(r.Width<6 || r.Height<6) return;
-        using(var light=new Pen(Color.FromArgb(133,133,126))) using(var dark=new Pen(Color.FromArgb(22,22,21))) using(var middle=new Pen(Color.FromArgb(79,79,74))) {
-            g.DrawLine(light,r.Left,r.Top,r.Right-1,r.Top); g.DrawLine(light,r.Left,r.Top,r.Left,r.Bottom-1);
-            g.DrawLine(dark,r.Left,r.Bottom-1,r.Right-1,r.Bottom-1); g.DrawLine(dark,r.Right-1,r.Top,r.Right-1,r.Bottom-1);
-            r.Inflate(-1,-1); g.DrawRectangle(middle,r.Left,r.Top,r.Width-1,r.Height-1);
-            r.Inflate(-1,-1); g.DrawRectangle(dark,r.Left,r.Top,r.Width-1,r.Height-1);
-        }
+    public static GraphicsPath Rounded(Rectangle r,int radius) {
+        var path=new GraphicsPath(); int d=radius*2;
+        if(radius<=0 || r.Width<d || r.Height<d) { path.AddRectangle(r); return path; }
+        path.AddArc(r.Left,r.Top,d,d,180,90); path.AddArc(r.Right-d,r.Top,d,d,270,90);
+        path.AddArc(r.Right-d,r.Bottom-d,d,d,0,90); path.AddArc(r.Left,r.Bottom-d,d,d,90,90);
+        path.CloseFigure(); return path;
     }
-    // Cores amostradas dos arabescos dourados do logo (não do dourado das letras): claro, médio, sombra e contorno escuro.
-    static readonly Color OrnamentLight=Color.FromArgb(235,192,98), OrnamentMid=Color.FromArgb(198,122,37), OrnamentShade=Color.FromArgb(145,63,18), OrnamentLine=Color.FromArgb(66,30,8);
-    // Borda biselada de 4 anéis (contorno, brilho, corpo, contorno); topo/esquerda claros e base/direita escuros dão o relevo do metal.
-    public static void GoldFrame(Graphics g,Rectangle r,int ring) {
-        Color[] lit={OrnamentLine,OrnamentLight,OrnamentMid,OrnamentLine}, shaded={OrnamentLine,OrnamentMid,OrnamentShade,OrnamentLine};
-        for(int i=0;i<lit.Length;i++) {
-            var o=new Rectangle(r.X+i*ring,r.Y+i*ring,r.Width-2*i*ring,r.Height-2*i*ring);
-            if(o.Width<=2*ring || o.Height<=2*ring) break;
-            using(var light=new SolidBrush(lit[i])) using(var dark=new SolidBrush(shaded[i])) {
-                g.FillRectangle(light,o.X,o.Y,o.Width,ring); g.FillRectangle(light,o.X,o.Y,ring,o.Height);
-                g.FillRectangle(dark,o.X,o.Bottom-ring,o.Width,ring); g.FillRectangle(dark,o.Right-ring,o.Y,ring,o.Height);
-            }
+    // Moldura fina das overlays sobre o jogo (3 px): contorno escuro, fio de ouro queimado e contorno escuro.
+    public static void OverlayFrame(Graphics g,Rectangle r) {
+        if(r.Width<6 || r.Height<6) return;
+        using(var dark=new Pen(Color.FromArgb(4,7,8))) using(var gold=new Pen(Color.FromArgb(150,98,42))) {
+            g.DrawRectangle(dark,r.Left,r.Top,r.Width-1,r.Height-1);
+            g.DrawRectangle(gold,r.Left+1,r.Top+1,r.Width-3,r.Height-3);
+            g.DrawRectangle(dark,r.Left+2,r.Top+2,r.Width-5,r.Height-5);
         }
     }
     public static Button Button(string text,int x,int y,int width,bool primary) {
-        return new StoneButton { Text=text, Location=new Point(x,y), Size=new Size(width,38), FlatStyle=FlatStyle.Flat, BackColor=Surface, ForeColor=primary?Gold:Ink, Cursor=Cursors.Hand, UseVisualStyleBackColor=false };
+        return new ThemedButton { Text=text, Location=new Point(x,y), Size=new Size(width,32), Primary=primary };
     }
     // Variantes para layouts em TableLayoutPanel: o painel define posição e tamanho.
     public static Button Button(string text,bool primary) {
-        return new StoneButton { Text=text, Size=new Size(120,30), MinimumSize=new Size(0,30), Margin=Padding.Empty, FlatStyle=FlatStyle.Flat, BackColor=Surface, ForeColor=primary?Gold:Ink, Cursor=Cursors.Hand, UseVisualStyleBackColor=false };
+        return new ThemedButton { Text=text, Size=new Size(120,32), MinimumSize=new Size(0,32), Margin=Padding.Empty, Primary=primary };
     }
     public static Label Caption(string text) {
-        return new Label { Text=text, AutoSize=true, Anchor=AnchorStyles.Left, Margin=new Padding(0,0,8,0), BackColor=Color.Transparent, ForeColor=Ink };
+        return new Label { Text=text, AutoSize=true, Anchor=AnchorStyles.Left, Margin=new Padding(0,0,8,0), BackColor=Color.Transparent, ForeColor=Muted };
     }
     public static Label Note(string text) {
         return new WrapLabel { Text=text, Dock=DockStyle.Fill, Margin=Padding.Empty, BackColor=Color.Transparent, ForeColor=Muted };

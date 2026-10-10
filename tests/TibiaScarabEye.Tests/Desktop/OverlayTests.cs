@@ -119,7 +119,7 @@ public class OverlayTests
             using (var bitmap = new Bitmap(overlay.Width, overlay.Height))
             {
                 overlay.DrawToBitmap(bitmap, new Rectangle(Point.Empty, overlay.Size));
-                Assert.Equal(Color.FromArgb(133, 133, 126).ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+                Assert.Equal(Color.FromArgb(4, 7, 8).ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
                 SaveArtifact(bitmap, "overlay-border-preview.png");
             }
 

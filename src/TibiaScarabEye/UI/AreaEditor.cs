@@ -31,11 +31,12 @@ internal sealed class AreaEditor : Form {
     readonly List<Item> selection=new List<Item>();
     readonly EditorAdorner adorner=new EditorAdorner();
     readonly EditorHistory history=new EditorHistory();
-    readonly ComboBox name=new ComboBox(), zoomBox=new ComboBox();
+    readonly ComboBox name=new ThemedComboBox(), zoomBox=new ThemedComboBox();
     readonly CheckBox squareOnly=new CheckBox(), slotSnap=new CheckBox();
     readonly NumericUpDown exactX=new NumericUpDown(), exactY=new NumericUpDown(), exactW=new NumericUpDown(), exactH=new NumericUpDown(), opacityBox=new NumericUpDown();
     readonly LayerList layerList=new LayerList();
-    readonly Label layersLabel, opacityLabel, pixelLabel;
+    readonly Control layersLabel;
+    readonly Label opacityLabel, pixelLabel;
     readonly Button done, undoButton, redoButton, upButton, downButton, duplicateButton, removeButton;
     readonly Button[] alignButtons=new Button[6];
     readonly Button distributeH, distributeV;
@@ -84,7 +85,7 @@ internal sealed class AreaEditor : Form {
             fields[i].ValueChanged+=delegate { ApplyFields(); }; Controls.Add(fields[i]);
         }
 
-        layersLabel=Theme.Label("Camadas (de cima para baixo)",0,0,PanelWidth,22,true); Controls.Add(layersLabel);
+        layersLabel=new SectionHeader("Camadas"); Controls.Add(layersLabel);
         layerList.EyeClicked+=delegate(int row) { ToggleLayer(row,true); };
         layerList.LockClicked+=delegate(int row) { ToggleLayer(row,false); };
         layerList.SelectedIndexChanged+=delegate { SelectFromList(); };
@@ -137,7 +138,7 @@ internal sealed class AreaEditor : Form {
     void LayoutControls() {
         done.Top=ClientSize.Height-50; pixelLabel.Top=done.Top+10;
         int x=ClientSize.Width-PanelWidth-20, half=(PanelWidth-6)/2, third=(PanelWidth-12)/3, blockTop=ClientSize.Height-112-PanelRows*RowHeight;
-        layersLabel.SetBounds(x,126,PanelWidth,22);
+        layersLabel.SetBounds(x,122,PanelWidth,26);
         layerList.SetBounds(x,150,PanelWidth,Math.Max(60,blockTop-150-8));
         Action<Control,int,int,int> place=delegate(Control c,int row,int column,int width) { c.SetBounds(x+column*(width+6),blockTop+row*RowHeight,width,28); };
         place(undoButton,0,0,half); place(redoButton,0,1,half);
@@ -557,6 +558,11 @@ internal sealed class AreaEditor : Form {
             SyncFields(); Mark();
         }
         return true;
+    }
+    // Barra de título escura, para a moldura do Windows acompanhar o tema (Windows 10 2004 ou mais novo; antes disso é ignorado).
+    protected override void OnHandleCreated(EventArgs e) {
+        base.OnHandleCreated(e);
+        Native.UseDarkTitleBar(Handle,Theme.Background,Theme.Ink);
     }
     protected override void OnKeyUp(KeyEventArgs e) {
         if(e.KeyCode==Keys.Space) { spaceDown=false; UpdateCursor(PointToClient(MousePosition)); }

@@ -104,7 +104,7 @@ public class MainFormTests
 
     // Sem moldura nativa: o formato (painel + logo), o arrasto pelo topo e o redimensionamento pelas bordas dependem do Region e de WM_NCHITTEST.
     [WinFormsFact]
-    public void MainForm_IsFramelessWithLogoCutout()
+    public void MainForm_IsFramelessWithEmblemCutout()
     {
         using var main = new MainForm();
         DesktopHarness.ShowOffscreen(main);
@@ -112,7 +112,8 @@ public class MainFormTests
         Assert.Equal(FormBorderStyle.None, main.FormBorderStyle);
         var size = main.ClientSize;
         Assert.False(main.Region.IsVisible(new Point(4, 4)), "canto superior esquerdo deve ser vazio");
-        Assert.True(main.Region.IsVisible(new Point(size.Width / 2, 20)), "o logo deve fazer parte da janela");
+        Assert.True(main.Region.IsVisible(new Point(82, 50)), "o emblema do escaravelho deve fazer parte da janela");
+        Assert.False(main.Region.IsVisible(new Point(size.Width / 2, 20)), "o topo central e vazio: o emblema fica no canto esquerdo");
         Assert.True(main.Region.IsVisible(new Point(4, size.Height - 4)), "o painel deve fazer parte da janela");
 
         Assert.Equal(2, HitTest(main, size.Width / 2, 20));
