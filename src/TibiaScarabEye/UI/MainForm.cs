@@ -29,7 +29,7 @@ internal sealed class MainForm : FramelessForm {
     const int BodyRow=1, MinClientWidth=580;
     readonly TableLayoutPanel layout, body, side, listColumn;
     public MainForm() {
-        Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandSubtitle="Espelhe e reposicione partes do Tibia"; BandCaption="build "+BuildStamp();
+        Theme.Apply(this); Text="Tibia Scarab Eye"; BandCaption="build "+BuildStamp();
          StartPosition=FormStartPosition.CenterScreen;
 
         windows.DropDownStyle=ComboBoxStyle.DropDownList; windows.Anchor=AnchorStyles.Left|AnchorStyles.Right; windows.Margin=new Padding(0,0,8,0);
