@@ -10,14 +10,19 @@ que o OBS já captura. Não há alteração no cliente, leitura de memória ou
 injeção.
 
 INSTALAÇÃO — UMA VEZ
-1. Extraia o pacote em uma pasta fixa e abra TibiaScarabEye.exe. O Tibia é
-   detectado sozinho: a lâmpada no topo da janela fica verde quando o programa
-   o está lendo.
+1. Execute o instalador (TibiaScarabEye-Setup-<versão>.exe) e abra o programa.
+   O Tibia é detectado sozinho: a lâmpada no topo da janela fica verde quando
+   o programa o está lendo. (Sem o instalador, extraia o pacote em uma pasta
+   fixa e abra TibiaScarabEye.exe.)
 2. No OBS, confirme que sua fonte de Captura de jogo já mostra o Tibia, direto
    na cena (não dentro de um grupo). Ela fornece a imagem de todas as overlays.
-3. OBS > Ferramentas > Scripts: clique em + e escolha obs/TibiaScarabEye.lua.
-   Mantenha o script na pasta fixa para o OBS carregá-lo nas próximas
-   aberturas. O Lua já vem com o OBS.
+3. O instalador adiciona o script ao OBS (opção "Adicionar o script à lista de
+   scripts do OBS", marcada por padrão quando o OBS já foi aberto alguma vez;
+   o OBS precisa estar fechado). Ele entra em Ferramentas > Scripts, na
+   coleção de cenas ativa, e o OBS o carrega nas próximas aberturas. Para
+   outra coleção, ou sem o instalador: OBS > Ferramentas > Scripts, clique em +
+   e escolha obs/TibiaScarabEye.lua (na pasta da instalação). Mantenha o
+   script na pasta fixa. O Lua já vem com o OBS.
 4. No script, deixe "Automático" ou escolha sua Captura de jogo.
 5. No programa, crie as áreas, clique em Sincronizar com OBS e depois em
    Travar para jogar.
