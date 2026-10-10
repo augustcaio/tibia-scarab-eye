@@ -9,8 +9,8 @@ namespace TibiaScarabEye.UI;
 // não há barra de título nativa.
 internal abstract class FramelessForm : Form {
     // Valores lógicos (96 dpi); a janela converte para pixels do dispositivo.
-    // Edge é a espessura da borda dourada e também a faixa que redimensiona; Margin é o respiro entre a borda e o conteúdo.
-    const int Edge=8, Margin=24, HeaderTop=Edge+14, ContentTop=HeaderTop+62, CaptionButtonWidth=30, CaptionButtonHeight=22;
+    // Edge é a espessura da borda dourada e também a faixa que redimensiona; Gutter é o respiro entre a borda e o conteúdo.
+    const int Edge=8, Gutter=24, HeaderTop=Edge+14, ContentTop=HeaderTop+62, CaptionButtonWidth=30, CaptionButtonHeight=22;
     const int HitClient=1, HitCaption=2, HitLeft=10, HitRight=11, HitBottom=15, HitBottomLeft=16, HitBottomRight=17;
     const int WmNcHitTest=0x84, WmNcLButtonDblClk=0xA3, WmSysCommand=0x112, ScMaximize=0xF030, WsMinimizeBox=0x20000;
     readonly CaptionButton minimize=new CaptionButton(CaptionGlyph.Minimize), close=new CaptionButton(CaptionGlyph.Close);
@@ -30,9 +30,9 @@ internal abstract class FramelessForm : Form {
         get { var p=base.CreateParams; p.Style|=WsMinimizeBox; return p; } // sem isso o clique na barra de tarefas não minimiza uma janela sem borda
     }
 
-    // O conteúdo começa depois do cabeçalho; o respiro lateral e o de baixo (Margin) vêm do Padding da janela principal.
+    // O conteúdo começa depois do cabeçalho e fica a Gutter da borda dourada nas laterais e quase isso na base.
     protected override void OnLayout(LayoutEventArgs e) {
-        var padding=new Padding(Px(Edge)+Px(Margin),Px(ContentTop),Px(Edge)+Px(Margin),Px(Edge)+Px(Margin-4));
+        var padding=new Padding(Px(Edge)+Px(Gutter),Px(ContentTop),Px(Edge)+Px(Gutter),Px(Edge)+Px(Gutter-4));
         if(Padding!=padding) Padding=padding;
         base.OnLayout(e);
     }
@@ -40,14 +40,14 @@ internal abstract class FramelessForm : Form {
         base.OnSizeChanged(e);
         if(ClientSize.Width<=0 || ClientSize.Height<=0) return;
         int y=Px(HeaderTop), gap=Px(4);
-        close.SetBounds(ClientSize.Width-Px(Edge)-Px(Margin)-Px(CaptionButtonWidth),y,Px(CaptionButtonWidth),Px(CaptionButtonHeight));
+        close.SetBounds(ClientSize.Width-Px(Edge)-Px(Gutter)-Px(CaptionButtonWidth),y,Px(CaptionButtonWidth),Px(CaptionButtonHeight));
         minimize.SetBounds(close.Left-gap-Px(CaptionButtonWidth),y,Px(CaptionButtonWidth),Px(CaptionButtonHeight));
     }
 
     protected override void OnPaint(PaintEventArgs e) {
         base.OnPaint(e);
         Theme.GoldFrame(e.Graphics,ClientRectangle,Px(2));
-        int left=Px(Edge)+Px(Margin), top=Px(HeaderTop), width=minimize.Left-left-Px(12);
+        int left=Px(Edge)+Px(Gutter), top=Px(HeaderTop), width=minimize.Left-left-Px(12);
         if(width<=0) return;
         using(var title=new Font("Tahoma",12,FontStyle.Bold)) using(var caption=new Font("Tahoma",8)) {
             TextRenderer.DrawText(e.Graphics,BandTitle,title,new Rectangle(left,top,width,title.Height+Px(2)),Theme.Gold,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);

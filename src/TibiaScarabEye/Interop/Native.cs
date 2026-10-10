@@ -62,6 +62,11 @@ internal static class Native {
     [DllImport("dwmapi.dll")] internal static extern int DwmUnregisterThumbnail(IntPtr thumb);
     [DllImport("dwmapi.dll")] internal static extern int DwmQueryThumbnailSourceSize(IntPtr thumb, out SizeI size);
     [DllImport("dwmapi.dll")] internal static extern int DwmUpdateThumbnailProperties(IntPtr thumb, ref Props p);
+    // Nome do processo dono da janela (vazio se não for possível ler).
+    internal static string ProcessName(IntPtr h) {
+        try { uint pid; GetWindowThreadProcessId(h,out pid); using(var process=Process.GetProcessById((int)pid)) return process.ProcessName; }
+        catch(Exception) { return ""; }
+    }
     internal static List<WindowItem> Windows() {
         var list=new List<WindowItem>();
         EnumWindows(delegate(IntPtr h, IntPtr p) {

@@ -9,107 +9,104 @@ using TibiaScarabEye.Obs;
 
 namespace TibiaScarabEye.UI;
 
+// Janela principal: mostra se o Tibia está sendo lido (ele é detectado sozinho), escolhe o preset do personagem e leva às
+// ações. Criar e ajustar áreas (posição, opacidade, tamanho, camadas) acontece no editor. Os presets são salvos sozinhos.
 internal sealed class MainForm : FramelessForm {
-    readonly ComboBox windows=new ComboBox(), zoom=new ComboBox();
-    readonly ListBox areas=new ListBox();
-    readonly TrackBar opacity=new TrackBar();
-    readonly Label status, detail, opacityLabel;
-    readonly Button mode;
-    readonly Button visibility;
-    readonly Button obsCapture;
-    readonly Label obsStatus;
-    ObsBridge obsOutput;
+    sealed class PresetItem {
+        public Preset Preset; public string Text;
+        public override string ToString() { return Text; }
+    }
+    const int MinClientWidth=600;
+    readonly StatusLamp lamp=new StatusLamp();
+    readonly ComboBox presets=new ComboBox();
+    readonly Button newPreset, options, editor, mode, visibility, obsCapture;
+    readonly Label areaInfo, obsStatus, status;
+    readonly ContextMenuStrip menu=new ContextMenuStrip();
+    readonly ToolStripMenuItem duplicateItem, renameItem, deleteItem, exportOneItem, exportAllItem, importItem;
+    readonly TableLayoutPanel layout;
     readonly List<Overlay> overlays=new List<Overlay>();
-    readonly Timer timer=new Timer();
-    IntPtr source;
-    string sourceTitle="";
-    bool locked, binding, dirty, hotkey, visibilityHotkey, overlaysHidden;
+    readonly Timer timer=new Timer(), autosave=new Timer();
     readonly ToolTip tips=new ToolTip();
-    const int BodyRow=1, MinClientWidth=620;
-    readonly TableLayoutPanel layout, body, side, listColumn;
-    public MainForm() {
+    readonly PresetStore store;
+    // Recebe a janela que já estava sendo lida (para preferi-la com vários clientes abertos); os testes trocam por uma falsa.
+    readonly Func<IntPtr,TibiaWindow> locator;
+    ObsBridge obsOutput;
+    Preset active;
+    bool materialized, loading, locked, binding, hotkey, visibilityHotkey, overlaysHidden;
+    IntPtr source;
+    string character="";
+
+    public MainForm() : this(PresetStore.DefaultPath,TibiaLocator.Find) { }
+    internal MainForm(string presetsPath,Func<IntPtr,TibiaWindow> locator) {
+        this.locator=locator; store=PresetStore.Open(presetsPath);
         Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
-         StartPosition=FormStartPosition.CenterScreen;
+        StartPosition=FormStartPosition.CenterScreen;
 
-        windows.DropDownStyle=ComboBoxStyle.DropDownList; windows.Anchor=AnchorStyles.Left|AnchorStyles.Right; windows.Margin=new Padding(0,0,8,0);
-        zoom.DropDownStyle=ComboBoxStyle.DropDownList; zoom.Items.AddRange(new object[]{"50%","75%","100%","125%","150%","200%","300%"}); zoom.Width=110; zoom.Anchor=AnchorStyles.Left|AnchorStyles.Right; zoom.Margin=new Padding(0,0,0,6);
-        areas.BorderStyle=BorderStyle.FixedSingle; areas.ItemHeight=26; areas.IntegralHeight=false; areas.Dock=DockStyle.Fill; areas.Margin=Padding.Empty; areas.MinimumSize=new Size(0,60);
-        opacity.AutoSize=false; opacity.BackColor=Theme.Background; opacity.Height=30; opacity.Width=110; opacity.Anchor=AnchorStyles.Left|AnchorStyles.Right; opacity.Margin=new Padding(0,0,0,6);
-        opacity.Minimum=20; opacity.Maximum=100; opacity.Value=100; opacity.TickFrequency=20;
-        foreach(Control c in new Control[]{windows,zoom,areas}) Theme.Style(c);
+        presets.DropDownStyle=ComboBoxStyle.DropDownList; presets.Anchor=AnchorStyles.Left|AnchorStyles.Right; presets.Margin=new Padding(0,0,8,0); Theme.Style(presets);
+        newPreset=Theme.Button("Novo",false); newPreset.Width=72; newPreset.Anchor=AnchorStyles.Left|AnchorStyles.Right; newPreset.Margin=new Padding(0,0,6,0);
+        options=Theme.Button("Opções",false); options.Width=88; options.Anchor=AnchorStyles.Left|AnchorStyles.Right;
+        tips.SetToolTip(newPreset,"Cria um preset novo, vazio, para o personagem atual");
+        tips.SetToolTip(options,"Duplicar, renomear, excluir, exportar e importar presets");
+        var presetRow=Table(Columns(AutoColumn(),PercentColumn(100),AutoColumn(),AutoColumn()),Theme.Caption("Preset"),presets,newPreset,options);
 
-        var refresh=Theme.Button("Atualizar",false); refresh.Anchor=AnchorStyles.Left|AnchorStyles.Right; refresh.Width=90; refresh.Click+=delegate { RefreshWindows(); };
-        var sourceRow=Table(Columns(AutoColumn(),PercentColumn(100),AutoColumn()),Theme.Caption("Janela do Tibia"),windows,refresh);
-
-        var editor=Theme.Button("Editor de áreas",true); var remove=Theme.Button("Remover",false);
-        foreach(var b in new[]{editor,remove}) { b.Anchor=AnchorStyles.Left|AnchorStyles.Right; b.Margin=new Padding(0,0,4,6); }
-        remove.Margin=new Padding(0,0,0,6);
-        editor.Click+=delegate { OpenEditor(); }; remove.Click+=delegate { RemoveArea(); };
-        tips.SetToolTip(editor,"Cria e posiciona as áreas sobre a prévia do jogo, antes de elas aparecerem na tela"); tips.SetToolTip(remove,"Remover a área selecionada");
-        var tools=Table(Columns(PercentColumn(70),PercentColumn(30)),editor,remove);
-        var left=listColumn=Table(Columns(PercentColumn(100)),tools,areas);
-        left.RowStyles[1]=new RowStyle(SizeType.Percent,100); left.Margin=new Padding(0,0,12,0);
-
-        opacityLabel=Theme.Caption("Opacidade: 100%"); opacityLabel.MinimumSize=new Size(TextRenderer.MeasureText("Opacidade: 100%",Font).Width+2,0);
-        obsCapture=Theme.Button("Sincronizar com OBS",true); obsCapture.Anchor=AnchorStyles.Left|AnchorStyles.Right; obsCapture.Margin=new Padding(0,6,0,0); obsCapture.Click+=delegate { ToggleObsOutput(); };
-        var fields=Table(Columns(AutoColumn(),PercentColumn(100)),Theme.Caption("Tamanho"),zoom,opacityLabel,opacity);
-        side=Table(Columns(PercentColumn(100)),fields,obsCapture); side.Dock=DockStyle.Top; var right=side;
-        var main=body=Table(Columns(PercentColumn(100),AutoColumn()),left,right);
-        main.RowStyles[0]=new RowStyle(SizeType.Percent,100);
-
-        detail=Theme.Note("Abra o editor para criar e posicionar áreas. Elas aparecem na tela quando você travar para jogar.");
+        areaInfo=Theme.Note("");
+        editor=Theme.Button("Editor de áreas",true); obsCapture=Theme.Button("Sincronizar com OBS",false);
+        editor.Anchor=obsCapture.Anchor=AnchorStyles.Left|AnchorStyles.Right; editor.Margin=new Padding(0,0,6,0);
+        tips.SetToolTip(editor,"Cria e posiciona as áreas sobre a prévia do jogo, antes de elas aparecerem na tela");
         tips.SetToolTip(obsCapture,"A Captura de jogo do Tibia fica direto na cena do OBS; as overlays viram grupos. Usa a imagem já capturada, não recaptura a tela.");
-        obsStatus=Theme.Note("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.");
-        var obs=obsStatus;
+        var actionsA=Table(Columns(PercentColumn(50),PercentColumn(50)),editor,obsCapture);
 
-        mode=Theme.Button("Travar para jogar",true); var save=Theme.Button("Salvar layout",false); var load=Theme.Button("Abrir layout",false); visibility=Theme.Button("Ocultar overlays",false);
-        mode.Click+=delegate { ToggleMode(); }; save.Click+=delegate { SaveLayout(); }; load.Click+=delegate { OpenLayout(); }; visibility.Click+=delegate { ToggleVisibility(); };
+        mode=Theme.Button("Travar para jogar",true); visibility=Theme.Button("Ocultar overlays",false);
+        mode.Anchor=visibility.Anchor=AnchorStyles.Left|AnchorStyles.Right; mode.Margin=new Padding(0,0,6,0);
         tips.SetToolTip(mode,"Ctrl + Shift + F8, mesmo com o painel minimizado"); tips.SetToolTip(visibility,"Ctrl + Shift + F9, mesmo com o painel minimizado");
-        foreach(var b in new[]{mode,save,load,visibility}) { b.Anchor=AnchorStyles.Left|AnchorStyles.Right; b.Margin=new Padding(0,0,6,0); }
-        visibility.Margin=Padding.Empty;
-        var actions=Table(Columns(PercentColumn(25),PercentColumn(25),PercentColumn(25),PercentColumn(25)),mode,save,load,visibility);
+        var actionsB=Table(Columns(PercentColumn(50),PercentColumn(50)),mode,visibility);
+
+        obsStatus=Theme.Note("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.");
         status=Theme.Note("");
 
-        var root=Table(Columns(PercentColumn(100)),sourceRow,main,detail,obs,actions,status);
-        root.RowStyles[BodyRow]=new RowStyle(SizeType.Percent,100); layout=root;
-        root.AutoSize=false; root.Padding=Padding.Empty;
-        foreach(Control c in new Control[]{sourceRow,main,detail,obs,actions}) c.Margin=new Padding(0,0,0,8);
+        var root=Table(Columns(PercentColumn(100)),lamp,presetRow,areaInfo,actionsA,actionsB,obsStatus,status);
+        lamp.Margin=new Padding(0,0,0,10); presetRow.Margin=new Padding(0,0,0,6); areaInfo.Margin=new Padding(0,0,0,10);
+        actionsA.Margin=new Padding(0,0,0,8); actionsB.Margin=new Padding(0,0,0,10); obsStatus.Margin=new Padding(0,0,0,4);
+        root.AutoSize=false; root.Padding=Padding.Empty; layout=root;
         Controls.Add(root);
-        ClientSize=new Size(700,470); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,400));
+        ClientSize=new Size(640,350); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,300));
 
-        areas.SelectedIndexChanged+=delegate { BindSelection(); };
-        areas.DoubleClick+=delegate { OpenEditor(); };
-        zoom.SelectedIndexChanged+=delegate { if(binding || Selected==null || zoom.SelectedIndex<0) return; Safe(delegate { Selected.Zoom(new double[]{.5,.75,1,1.25,1.5,2,3}[zoom.SelectedIndex]); dirty=true; }); };
-        opacity.ValueChanged+=delegate { opacityLabel.Text="Opacidade: "+opacity.Value+"%"; if(!binding && Selected!=null) { Selected.Spec.Opacity=opacity.Value; Selected.ApplyStyle(); dirty=true; } };
-        windows.SelectedIndexChanged+=delegate {
-            var item=windows.SelectedItem as WindowItem;
-            if(item!=null && overlays.Count==0) { source=item.Handle; sourceTitle=item.Title; }
-        };
-        Shown+=delegate { RefreshWindows(); hotkey=Native.RegisterHotKey(Handle,1,0x4006,(uint)Keys.F8); visibilityHotkey=Native.RegisterHotKey(Handle,2,0x4006,(uint)Keys.F9); UpdateStatus(); };
-        timer.Interval=750; timer.Tick+=delegate { TickSource(); }; timer.Start(); BindSelection();
+        duplicateItem=Item("Duplicar preset",delegate { DuplicatePreset(); }); renameItem=Item("Renomear…",delegate { RenamePreset(); }); deleteItem=Item("Excluir preset",delegate { DeletePreset(); });
+        exportOneItem=Item("Exportar este preset…",delegate { Export(false); }); exportAllItem=Item("Exportar todos os presets…",delegate { Export(true); }); importItem=Item("Importar…",delegate { Import(); });
+        menu.Items.AddRange(new ToolStripItem[]{duplicateItem,renameItem,deleteItem,new ToolStripSeparator(),exportOneItem,exportAllItem,importItem});
+        menu.Renderer=new ToolStripProfessionalRenderer(new DarkMenuColors()) { RoundedEdges=false }; menu.ForeColor=Theme.Ink; menu.BackColor=Color.FromArgb(39,39,37);
+
+        presets.SelectedIndexChanged+=delegate { var item=presets.SelectedItem as PresetItem; if(!binding && item!=null && item.Preset!=active) SwitchTo(item.Preset); };
+        newPreset.Click+=delegate { NewPreset(); };
+        options.Click+=delegate { UpdateStates(); menu.Show(options,new Point(0,options.Height)); };
+        editor.Click+=delegate { OpenEditor(); };
+        obsCapture.Click+=delegate { ToggleObsOutput(); };
+        mode.Click+=delegate { ToggleMode(); };
+        visibility.Click+=delegate { ToggleVisibility(); };
+        Shown+=delegate { hotkey=Native.RegisterHotKey(Handle,1,0x4006,(uint)Keys.F8); visibilityHotkey=Native.RegisterHotKey(Handle,2,0x4006,(uint)Keys.F9); DetectTibia(); UpdateStatus(); };
+        timer.Interval=750; timer.Tick+=delegate { DetectTibia(); TickSource(); }; timer.Start();
+        autosave.Interval=1500; autosave.Tick+=delegate { SaveActive(); };
+        RefreshPresetList(); UpdateStates(); ShowLamp(null);
     }
-    // A altura mínima é achada no layout real na largura mínima (o texto quebra em mais linhas): cresce até o painel de áreas caber os controles ao lado.
+    ToolStripMenuItem Item(string text,Action click) {
+        var item=new ToolStripMenuItem(text) { ForeColor=Theme.Ink };
+        item.Click+=delegate { Safe(click); };
+        return item;
+    }
+
+    // A altura mínima é a que o conteúdo pede na largura mínima (o texto quebra em mais linhas ali). Mede com o layout pronto.
     protected override void OnShown(EventArgs e) {
         base.OnShown(e);
-        BeginInvoke(new Action(FitMinimumSize)); // depois do layout pendente, para medir o que o usuário realmente vê
+        BeginInvoke(new Action(FitMinimumSize));
     }
     void FitMinimumSize() {
         int minWidth=LogicalToDeviceUnits(MinClientWidth), width=ClientSize.Width, height=ClientSize.Height;
-        int need=Math.Max(side.GetPreferredSize(Size.Empty).Height,ListColumnNeed())+body.Margin.Vertical, minHeight=LogicalToDeviceUnits(300);
-        for(int pass=0;pass<5;pass++) {
-            ClientSize=new Size(minWidth,minHeight); PerformLayout(); PerformLayout();
-            int shortfall=need-layout.GetRowHeights()[BodyRow];
-            if(shortfall<=0) break;
-            minHeight+=shortfall;
-        }
+        ClientSize=new Size(minWidth,LogicalToDeviceUnits(300)); PerformLayout(); PerformLayout();
+        int content=0;
+        foreach(int row in layout.GetRowHeights()) content+=row;
+        int minHeight=Padding.Vertical+content;
         MinimumSize=SizeFromClientSize(new Size(minWidth,minHeight));
         ClientSize=new Size(width,Math.Max(height,minHeight));
-    }
-    // A lista é a linha que estica, então conta pelo mínimo dela; os demais controles da coluna, pelo tamanho que pedem.
-    int ListColumnNeed() {
-        int need=0;
-        foreach(Control c in listColumn.Controls) need+=(c==areas?areas.MinimumSize.Height:c.GetPreferredSize(Size.Empty).Height)+c.Margin.Vertical;
-        return need;
     }
     static ColumnStyle AutoColumn() { return new ColumnStyle(SizeType.AutoSize); }
     static ColumnStyle PercentColumn(float percent) { return new ColumnStyle(SizeType.Percent,percent); }
@@ -121,7 +118,215 @@ internal sealed class MainForm : FramelessForm {
         for(int i=0;i<cells.Length;i++) { if(i%columns.Length==0) table.RowStyles.Add(new RowStyle(SizeType.AutoSize)); table.Controls.Add(cells[i]); }
         return table;
     }
-    Overlay Selected { get { return areas.SelectedIndex>=0 && areas.SelectedIndex<overlays.Count?overlays[areas.SelectedIndex]:null; } }
+    // Shown in the title so a stale executable is obvious at a glance.
+    static string BuildStamp() {
+        try { return File.GetLastWriteTime(Application.ExecutablePath).ToString("dd/MM HH:mm"); } catch { return "?"; }
+    }
+    void Safe(Action action) { try { action(); } catch(Exception ex) { MessageBox.Show(this,ex.Message,"Tibia Scarab Eye",MessageBoxButtons.OK,MessageBoxIcon.Warning); } }
+
+    // ----- O Tibia: detectado sozinho -----
+    void DetectTibia() {
+        var found=locator(source);
+        if(found==null) { if(source!=IntPtr.Zero) DetachTibia(); ShowLamp(null); return; }
+        if(found.Handle!=source) AttachTibia(found);
+        else if(!string.Equals(found.Character??"",character,StringComparison.OrdinalIgnoreCase)) ChangeCharacter(found.Character);
+        ShowLamp(found);
+    }
+    void AttachTibia(TibiaWindow found) {
+        SaveActive();
+        source=found.Handle; character=found.Character??"";
+        Safe(delegate { LoadPreset(active!=null && active.AppliesTo(character)?active:store.Pick(character)); });
+    }
+    // O mesmo cliente, outro personagem (saiu e entrou): troca para o preset dele.
+    void ChangeCharacter(string newCharacter) {
+        SaveActive();
+        character=newCharacter??"";
+        Safe(delegate { LoadPreset(active!=null && active.AppliesTo(character)?active:store.Pick(character)); });
+    }
+    void DetachTibia() {
+        SaveActive();
+        StopObsOutput(); ClearOverlays();
+        source=IntPtr.Zero; locked=false; mode.Text="Travar para jogar";
+        RefreshPresetList(); UpdateStates();
+    }
+    void ShowLamp(TibiaWindow found) {
+        if(found==null) lamp.Set(LampState.Searching,"Procurando o Tibia","Abra o jogo: ele é detectado sozinho.");
+        else if(Native.IsIconic(found.Handle)) lamp.Set(LampState.Minimized,"Tibia minimizado","Restaure a janela do jogo para continuar.");
+        else lamp.Set(LampState.Reading,"Lendo o Tibia",character.Length>0?character:"nenhum personagem conectado");
+    }
+    bool Ready() {
+        if(source==IntPtr.Zero || !Native.IsWindow(source)) { MessageBox.Show(this,"O Tibia não foi encontrado. Abra o jogo: o programa o detecta sozinho."); return false; }
+        if(Native.IsIconic(source)) { MessageBox.Show(this,"O Tibia está minimizado. Restaure a janela para continuar."); return false; }
+        return true;
+    }
+
+    // ----- Presets: salvos sozinhos -----
+    void MarkChanged() {
+        if(loading) return;
+        autosave.Stop(); autosave.Start(); UpdateStates();
+    }
+    List<RegionSpec> Snapshot() {
+        var list=new List<RegionSpec>();
+        foreach(var overlay in overlays) { overlay.CaptureSpec(); list.Add(overlay.Spec.Clone()); }
+        return list;
+    }
+    // Guarda as áreas atuais no preset ativo. Só vale com as overlays montadas; sem o Tibia aberto o preset fica como está.
+    void SaveActive() {
+        autosave.Stop();
+        if(active==null || !materialized) return;
+        active.Regions=Snapshot();
+        SaveStore();
+    }
+    void SaveStore() {
+        try { store.Save(); } catch(Exception ex) { status.Text="Não foi possível salvar os presets: "+ex.Message; }
+    }
+    // Troca o preset ativo: monta as overlays dele (se o Tibia estiver aberto) e lembra dele para este personagem.
+    void LoadPreset(Preset preset) {
+        loading=true;
+        try {
+            ClearOverlays(false);
+            active=preset;
+            if(preset!=null && source!=IntPtr.Zero) {
+                foreach(var spec in preset.Regions) CreateOverlay(spec.Clone());
+                materialized=true;
+                store.SetLastUsed(character,preset.Id); SaveStore();
+            }
+        } finally { loading=false; }
+        RefreshPresetList(); UpdateStates(); TickSource();
+    }
+    void SwitchTo(Preset preset) { SaveActive(); Safe(delegate { LoadPreset(preset); }); }
+    string ItemText(Preset preset) {
+        if(preset.IsGlobal) return preset.Name+" (todos)";
+        return source!=IntPtr.Zero?preset.Name:preset.Name+" ("+preset.Character+")";
+    }
+    void RefreshPresetList() {
+        binding=true;
+        presets.Items.Clear();
+        foreach(var preset in store.Presets) {
+            if(source!=IntPtr.Zero && !preset.AppliesTo(character)) continue;
+            presets.Items.Add(new PresetItem { Preset=preset, Text=ItemText(preset) });
+            if(preset==active) presets.SelectedIndex=presets.Items.Count-1;
+        }
+        binding=false;
+    }
+    static string Plural(int count) { return count==1?"1 área":count+" áreas"; }
+    void UpdateStates() {
+        bool tibia=source!=IntPtr.Zero;
+        editor.Enabled=tibia; obsCapture.Enabled=mode.Enabled=visibility.Enabled=overlays.Count>0;
+        presets.Enabled=presets.Items.Count>0;
+        duplicateItem.Enabled=renameItem.Enabled=deleteItem.Enabled=exportOneItem.Enabled=active!=null;
+        exportAllItem.Enabled=store.Presets.Count>0;
+        if(locked) areaInfo.Text="Modo jogo: as áreas aparecem sobre o jogo e deixam o mouse passar.";
+        else if(!tibia) areaInfo.Text=active!=null?"Abra o Tibia para editar. "+Plural(active.Regions.Count)+" neste preset.":"Abra o Tibia para criar áreas. Seus presets ficam salvos neste programa.";
+        else if(active==null) areaInfo.Text="Nenhum preset ainda. Abra o editor para criar o primeiro ou use Novo.";
+        else areaInfo.Text=Plural(overlays.Count)+" neste preset. As áreas só aparecem na tela quando você trava para jogar.";
+    }
+    Preset EnsureActive() {
+        if(active!=null) return active;
+        active=store.Add("Padrão",character.Length>0?character:null,new RegionSpec[0]);
+        materialized=source!=IntPtr.Zero;
+        store.SetLastUsed(character,active.Id); SaveStore();
+        RefreshPresetList(); UpdateStates();
+        return active;
+    }
+    // Pergunta o nome e, com o Tibia aberto e um personagem logado, se vale para todos.
+    bool AskName(string title,string initial,bool initialEveryone,out string name,out bool everyone) {
+        name=initial; everyone=initialEveryone;
+        bool offer=source!=IntPtr.Zero && character.Length>0;
+        return PromptForm.Ask(this,title,"Nome do preset",ref name,offer,ref everyone);
+    }
+    void NewPreset() {
+        string name=store.UniqueName("Preset "+(store.Presets.Count+1),character.Length>0?character:null,null); bool everyone=false;
+        if(!AskName("Novo preset",name,false,out name,out everyone)) return;
+        SaveActive();
+        var preset=store.Add(name,everyone||character.Length==0?null:character,new RegionSpec[0]);
+        SaveStore();
+        Safe(delegate { LoadPreset(preset); });
+    }
+    void RenamePreset() {
+        if(active==null) return;
+        string name=active.Name; bool everyone;
+        if(!AskName("Renomear preset",name,active.IsGlobal,out name,out everyone)) return;
+        string owner=everyone?null:(character.Length>0?character:active.Character);
+        store.Rename(active,name,owner); SaveStore(); RefreshPresetList(); UpdateStates();
+    }
+    void DuplicatePreset() {
+        if(active==null) return;
+        SaveActive();
+        var copies=new List<RegionSpec>();
+        foreach(var region in active.Regions) copies.Add(PresetStore.Fresh(region));
+        var preset=store.Add(active.Name+" cópia",active.Character,copies);
+        SaveStore();
+        Safe(delegate { LoadPreset(preset); });
+    }
+    void DeletePreset() {
+        if(active==null) return;
+        if(MessageBox.Show(this,"Excluir o preset \""+active.Name+"\"? Isso não pode ser desfeito.","Excluir preset",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)!=DialogResult.Yes) return;
+        store.Remove(active); SaveStore();
+        active=null;
+        Safe(delegate { LoadPreset(store.Pick(character)); });
+    }
+    void Export(bool all) {
+        if(!all && active==null) return;
+        SaveActive();
+        var list=new List<Preset>();
+        if(all) list.AddRange(store.Presets); else list.Add(active);
+        string suggestion=all?"Presets Tibia Scarab Eye":active.Name;
+        foreach(char invalid in Path.GetInvalidFileNameChars()) suggestion=suggestion.Replace(invalid,'_');
+        using(var dialog=new SaveFileDialog { Filter="Presets do Tibia Scarab Eye (*.json)|*.json", FileName=suggestion+".json", Title=all?"Exportar todos os presets":"Exportar preset" }) {
+            if(dialog.ShowDialog(this)!=DialogResult.OK) return;
+            store.Export(dialog.FileName,list);
+            status.Text=(list.Count==1?"Preset exportado":list.Count+" presets exportados")+" para "+dialog.FileName;
+        }
+    }
+    void Import() {
+        using(var dialog=new OpenFileDialog { Filter="Presets ou layouts do Tibia Scarab Eye (*.json)|*.json", Title="Importar presets" }) {
+            if(dialog.ShowDialog(this)!=DialogResult.OK) return;
+            int count=store.Import(dialog.FileName);
+            RefreshPresetList(); UpdateStates();
+            status.Text=count==1?"1 preset importado.":count+" presets importados.";
+            if(active==null && source!=IntPtr.Zero) Safe(delegate { LoadPreset(store.Pick(character)); });
+        }
+    }
+
+    // ----- Editor e overlays -----
+    // Criar e posicionar acontecem no mesmo lugar: o editor mostra o jogo ao vivo e age sobre as overlays na hora.
+    void OpenEditor() {
+        if(!Ready()) return;
+        if(locked) ToggleMode();
+        Safe(delegate {
+            EnsureActive();
+            using(var area=new AreaEditor(source,overlays,CreateOverlay,RemoveOverlay,-1)) {
+                area.Changed+=delegate { MarkChanged(); };
+                area.ShowDialog(this);
+            }
+            SaveActive(); UpdateStates();
+        });
+    }
+    Overlay CreateOverlay(RegionSpec spec) {
+        var overlay=new Overlay(source,spec);
+        overlay.SetObsMode(false);
+        try { overlay.Prepare(); }
+        catch { overlay.Dispose(); throw; }
+        overlay.Changed+=delegate { MarkChanged(); };
+        if(locked) overlay.SetLocked(true);
+        overlays.Add(overlay); MarkChanged();
+        return overlay;
+    }
+    void RemoveOverlay(Overlay overlay) {
+        int index=overlays.IndexOf(overlay); if(index<0) return;
+        overlays[index].Close(); overlays[index].Dispose(); overlays.RemoveAt(index);
+        if(overlays.Count==0) { StopObsOutput(); locked=false; mode.Text="Travar para jogar"; }
+        MarkChanged();
+    }
+    void ClearOverlays() { ClearOverlays(true); }
+    void ClearOverlays(bool stopObs) {
+        if(stopObs) StopObsOutput();
+        foreach(var overlay in overlays) { overlay.Close(); overlay.Dispose(); }
+        overlays.Clear(); materialized=false;
+        if(overlays.Count==0) UpdateStates();
+    }
+
     void ToggleObsOutput() {
         if(obsOutput!=null) { StopObsOutput(); return; }
         if(overlays.Count==0 || !Ready()) return;
@@ -133,83 +338,15 @@ internal sealed class MainForm : FramelessForm {
             obsStatus.Text="Layout enviado. No OBS, os grupos Tibia Scarab Eye aparecem no topo da cena.";
         });
     }
-    // Shown in the title so a stale executable is obvious at a glance.
-    static string BuildStamp() {
-        try { return File.GetLastWriteTime(Application.ExecutablePath).ToString("dd/MM HH:mm"); } catch { return "?"; }
-    }
     void StopObsOutput() {
         if(obsOutput!=null) { var output=obsOutput; obsOutput=null; output.Dispose(); }
         obsCapture.Text="Sincronizar com OBS";
         obsStatus.Text="Sincronização desligada. O grupo fica transparente no OBS.";
     }
-    void Safe(Action action) { try { action(); } catch(Exception ex) { MessageBox.Show(this,ex.Message,"Tibia Scarab Eye",MessageBoxButtons.OK,MessageBoxIcon.Warning); } }
-    void RefreshWindows() {
-        if(overlays.Count>0) { MessageBox.Show(this,"Remova as áreas atuais ou abra um layout para trocar a janela de origem."); return; }
-        windows.Items.Clear(); source=IntPtr.Zero;
-        foreach(var item in Native.Windows()) windows.Items.Add(item);
-        if(windows.Items.Count>0) {
-            int selected=0;
-            for(int i=0;i<windows.Items.Count;i++) if(((WindowItem)windows.Items[i]).Title.IndexOf("tibia",StringComparison.OrdinalIgnoreCase)>=0) { selected=i; break; }
-            windows.SelectedIndex=selected;
-        }
-        UpdateStatus();
-    }
-    bool Ready() {
-        if(!Native.IsWindow(source)) { MessageBox.Show(this,"Abra o Tibia e selecione sua janela. Se o jogo foi reiniciado, remova as áreas e clique em Atualizar."); return false; }
-        if(Native.IsIconic(source)) { MessageBox.Show(this,"Restaure a janela de origem antes de continuar."); return false; }
-        return true;
-    }
-    // Criar e posicionar acontecem no mesmo lugar: o editor mostra o jogo ao vivo e age sobre as overlays na hora.
-    void OpenEditor() {
-        if(!Ready()) return;
-        if(locked) ToggleMode();
-        Safe(delegate {
-            using(var editor=new AreaEditor(source,overlays,CreateOverlay,RemoveOverlay,areas.SelectedIndex)) {
-                editor.Changed+=delegate { dirty=true; };
-                editor.ShowDialog(this);
-                RefreshAreaList(editor.SelectedOverlay);
-            }
-        });
-    }
-    // O editor pode ter criado, removido ou renomeado áreas: refaz a lista e seleciona a área em que ele parou.
-    void RefreshAreaList(Overlay select) {
-        int index=select!=null?overlays.IndexOf(select):areas.SelectedIndex;
-        areas.Items.Clear();
-        foreach(var overlay in overlays) areas.Items.Add(overlay.Spec);
-        if(index>=0 && index<areas.Items.Count) areas.SelectedIndex=index;
-        windows.Enabled=overlays.Count==0;
-        BindSelection();
-    }
-    Overlay CreateOverlay(RegionSpec spec) {
-        var overlay=new Overlay(source,spec);
-        overlay.SetObsMode(false);
-        try { overlay.Prepare(); }
-        catch { overlay.Dispose(); throw; }
-        overlay.Changed+=delegate { dirty=true; };
-        overlays.Add(overlay); RefreshAreaList(overlay);
-        detail.Text="Posicione a área no editor. Ela aparece na tela quando você travar para jogar.";
-        obsCapture.Enabled=true;
-        return overlay;
-    }
     void ToggleVisibility() {
         overlaysHidden=!overlaysHidden;
         visibility.Text=overlaysHidden?"Mostrar overlays":"Ocultar overlays";
         TickSource(); UpdateStatus();
-    }
-    void RemoveArea() { RemoveOverlay(Selected); }
-    void RemoveOverlay(Overlay overlay) {
-        int index=overlays.IndexOf(overlay); if(index<0) return;
-        overlays[index].Close(); overlays[index].Dispose(); overlays.RemoveAt(index); dirty=true;
-        RefreshAreaList(overlays.Count>0?overlays[Math.Min(index,overlays.Count-1)]:null);
-        if(overlays.Count==0) { StopObsOutput(); locked=false; mode.Text="Travar para jogar"; detail.Text="Adicione uma área para começar."; }
-        BindSelection();
-    }
-    void BindSelection() {
-        binding=true; zoom.Enabled=opacity.Enabled=Selected!=null;
-        obsCapture.Enabled=overlays.Count>0;
-        zoom.SelectedIndex=-1;
-        if(Selected!=null) opacity.Value=Selected.Spec.Opacity;
-        binding=false;
     }
     void ToggleMode() {
         if(overlays.Count==0) return;
@@ -218,14 +355,13 @@ internal sealed class MainForm : FramelessForm {
             foreach(var overlay in overlays) overlay.SetLocked(locked);
             TickSource();
             mode.Text=locked?"Destravar para editar":"Travar para jogar";
-            detail.Text=locked?"Modo jogo: bordas fixas; cliques passam para a janela atrás.":"Modo edição: posicione as áreas no planejador. Elas só aparecem na tela no modo jogo.";
+            UpdateStates();
         });
     }
     void UpdateStatus() {
-        status.Text=hotkey?"Ctrl + Shift + F8: travar / editar"+(visibilityHotkey?" · F9: mostrar / ocultar":"")+".":"Atalho indisponível. Use o botão Travar para jogar.";
+        status.Text=hotkey?"Ctrl + Shift + F8 trava e edita"+(visibilityHotkey?"; F9 mostra e oculta":"")+".":"Atalho indisponível. Use o botão Travar para jogar.";
         if(overlaysHidden) status.Text="Overlays ocultas. Ctrl + Shift + F9 ou Mostrar overlays para restaurar.";
         if(!visibilityHotkey) status.Text+="\nF9 indisponível: use o botão Mostrar/Ocultar overlays.";
-        if(source==IntPtr.Zero) status.Text="Nenhuma janela selecionada. Abra o jogo e clique em Atualizar.";
     }
     void TickSource() {
         if(overlays.Count==0) return;
@@ -240,42 +376,14 @@ internal sealed class MainForm : FramelessForm {
         }
         // A ordem das camadas é a ordem da lista (a última fica por cima); reaplica quando alguma acabou de aparecer.
         if(shown) foreach(var overlay in overlays) if(overlay.Visible) overlay.BringToTop();
-        if(!alive) status.Text="A janela de origem foi fechada. Salve o layout; remova as áreas e selecione o jogo novamente.";
-        else if(locked && !visible && !overlaysHidden) status.Text="Recortes pausados. Restaure a janela de origem para continuar.";
+        if(locked && !visible && !overlaysHidden) status.Text="Recortes pausados. Restaure a janela do Tibia para continuar.";
         else UpdateStatus();
     }
-    bool SaveLayout() {
-        if(overlays.Count==0) return true;
-        using(var dialog=new SaveFileDialog { Filter="Layout Tibia Scarab Eye (*.json)|*.json", FileName="Meu layout.json", Title="Salvar layout" }) {
-            if(dialog.ShowDialog(this)!=DialogResult.OK) return false;
-            try {
-                var layout=new Layout { SourceTitle=sourceTitle };
-                foreach(var overlay in overlays) { overlay.CaptureSpec(); layout.Regions.Add(overlay.Spec); }
-                layout.Save(dialog.FileName); dirty=false; status.Text="Layout salvo em "+dialog.FileName; return true;
-            } catch(Exception ex) { MessageBox.Show(this,"Não foi possível salvar.\n"+ex.Message); return false; }
-        }
-    }
-    bool CanReplace() {
-        if(!dirty || overlays.Count==0) return true;
-        var result=MessageBox.Show(this,"Salvar o layout atual antes de continuar?","Layout com alterações",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
-        return result==DialogResult.No || (result==DialogResult.Yes && SaveLayout());
-    }
-    void ClearOverlays() { StopObsOutput(); foreach(var overlay in overlays) { overlay.Close(); overlay.Dispose(); } overlays.Clear(); areas.Items.Clear(); windows.Enabled=true; locked=false; mode.Text="Travar para jogar"; }
-    void OpenLayout() {
-        if(!Ready()) return;
-        using(var dialog=new OpenFileDialog { Filter="Layout Tibia Scarab Eye (*.json)|*.json",Title="Abrir layout na janela selecionada" }) {
-            if(dialog.ShowDialog(this)!=DialogResult.OK) return;
-            Safe(delegate {
-                var layout=Layouts.Layout.Load(dialog.FileName);
-                if(!CanReplace()) return;
-                ClearOverlays();
-                try { foreach(var spec in layout.Regions) CreateOverlay(spec); dirty=false; }
-                catch { dirty=overlays.Count>0; throw; }
-                status.Text="Layout aberto na janela selecionada. Confira os recortes se a resolução mudou.";
-            });
-        }
-    }
     protected override void WndProc(ref Message m) { if(m.Msg==0x312) { if(m.WParam.ToInt32()==1) { ToggleMode(); return; } if(m.WParam.ToInt32()==2) { ToggleVisibility(); return; } } base.WndProc(ref m); }
-    protected override void OnFormClosing(FormClosingEventArgs e) { if(e.CloseReason==CloseReason.UserClosing && !CanReplace()) { e.Cancel=true; return; } timer.Stop(); ClearOverlays(); Native.UnregisterHotKey(Handle,1); Native.UnregisterHotKey(Handle,2); base.OnFormClosing(e); }
-    protected override void Dispose(bool disposing) { if(disposing) { timer.Dispose(); tips.Dispose(); } base.Dispose(disposing); }
+    protected override void OnFormClosing(FormClosingEventArgs e) {
+        timer.Stop(); SaveActive(); ClearOverlays();
+        Native.UnregisterHotKey(Handle,1); Native.UnregisterHotKey(Handle,2);
+        base.OnFormClosing(e);
+    }
+    protected override void Dispose(bool disposing) { if(disposing) { timer.Dispose(); autosave.Dispose(); tips.Dispose(); menu.Dispose(); } base.Dispose(disposing); }
 }

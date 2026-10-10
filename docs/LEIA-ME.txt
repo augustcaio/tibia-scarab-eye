@@ -10,8 +10,9 @@ que o OBS já captura. Não há alteração no cliente, leitura de memória ou
 injeção.
 
 INSTALAÇÃO — UMA VEZ
-1. Extraia o pacote em uma pasta fixa e abra TibiaScarabEye.exe. Selecione a
-   janela do Tibia.
+1. Extraia o pacote em uma pasta fixa e abra TibiaScarabEye.exe. O Tibia é
+   detectado sozinho: a lâmpada no topo da janela fica verde quando o programa
+   o está lendo.
 2. No OBS, confirme que sua fonte de Captura de jogo já mostra o Tibia, direto
    na cena (não dentro de um grupo). Ela fornece a imagem de todas as overlays.
 3. OBS > Ferramentas > Scripts: clique em + e escolha obs/TibiaScarabEye.lua.
@@ -22,7 +23,8 @@ INSTALAÇÃO — UMA VEZ
    Travar para jogar.
 
 USO DIÁRIO
-- Abra o programa, selecione o Tibia, abra seu layout e sincronize.
+- Abra o Tibia e o programa. O preset do personagem logado abre sozinho; clique
+  em Sincronizar com OBS.
 - Posicionar, editar a seleção, mudar o tamanho e a opacidade atualiza o grupo
   no OBS em cerca de 100 ms. As overlays só aparecem na tela e no OBS no modo
   jogo; no modo edição elas ficam escondidas. O vídeo acompanha a taxa da Captura de jogo.
@@ -79,8 +81,27 @@ cancelar). Também abre com duplo clique na lista.
   vale enquanto o editor está aberto. Ctrl + D duplica. A posição do pixel sob o
   mouse aparece no rodapé.
 Nada aparece sobre o jogo até você clicar em Travar para jogar.
-Tamanho e opacidade: ajustes da área selecionada.
-Salvar layout / Abrir layout: arquivos JSON.
+Opacidade e Tamanho da overlay (50% a 300% do recorte) ficam no painel do
+editor e valem para as áreas selecionadas.
+
+PRESETS
+Um preset é um conjunto de áreas com nome. Ele é de um personagem (só aparece
+quando esse personagem está logado) ou de todos. O nome do personagem vem do
+título da janela do Tibia ("Tibia - Nome").
+- A lâmpada no topo mostra o estado: vermelha, procurando o Tibia; verde,
+  lendo (com o nome do personagem); âmbar, jogo minimizado.
+- Tudo que você muda no editor é salvo sozinho no preset ativo. Não há botão
+  de salvar. Os presets ficam em %LOCALAPPDATA%\TibiaScarabEye\presets.json.
+- Ao entrar com um personagem, abre o último preset que ele usou. O primeiro
+  preset ("Padrão") nasce quando você abre o editor sem nenhum.
+- Novo cria um preset vazio. Opções: Duplicar, Renomear (inclusive para
+  "disponível para todos os personagens"), Excluir, Exportar este preset,
+  Exportar todos e Importar.
+- Exportar grava um arquivo .json; Importar acrescenta os presets dele (com
+  nomes que não colidem) e também aceita o layout salvo pelas versões antigas.
+  Para levar suas configurações a outro computador, exporte todos e importe lá.
+- Com o jogo fechado, dá para escolher, duplicar, exportar e importar presets;
+  editar áreas precisa do jogo aberto.
 
 DIAGNÓSTICO
 Marque "Mostrar guia da área do jogo" para ver um contorno ciano da área que

@@ -123,7 +123,8 @@ public class OverlayTests
                 SaveArtifact(bitmap, "overlay-border-preview.png");
             }
 
-            using (var main = new MainForm())
+            string presets = Path.Combine(Path.GetTempPath(), "tibiascarabeye-hotkey-" + Guid.NewGuid().ToString("N") + ".json");
+            using (var main = new MainForm(presets, prefer => new TibiaWindow { Handle = source.Handle, Title = "Tibia - Teste", Character = "Teste" }))
             {
                 SetField(main, "source", source.Handle);
                 Field<List<Overlay>>(main, "overlays").Add(overlay);
