@@ -66,12 +66,21 @@ ficam sem imagem: o Tibia Scarab Eye não contorna bloqueios de captura.
 ## Requisitos
 
 - Windows 10 ou 11, x64
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
-  (x64). Para compilar, o .NET 8 SDK
+- Com o instalador, nada além disso: ele já traz o .NET. Para rodar a partir
+  da compilação, o [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+  (x64); para compilar, o .NET 8 SDK
 - OBS Studio (testado na versão 32.2.2) com uma fonte **Captura de jogo**
   mostrando o Tibia, direto na cena (fora de grupos)
 
 ## Começando
+
+### Instalar
+
+Baixe `TibiaScarabEye-Setup-<versão>.exe` na página de
+[Releases](https://github.com/augustcaio/tibia-scarab-eye/releases) e execute.
+Por padrão instala só para o seu usuário, sem pedir administrador, e cria o
+atalho no menu Iniciar. O script do OBS fica na pasta `obs` dentro da pasta de
+instalação (há um atalho no menu Iniciar para ela).
 
 ### Compilar
 
@@ -80,11 +89,14 @@ dotnet build TibiaScarabEye.sln -c Release
 ```
 
 O executável sai em `artifacts\bin\TibiaScarabEye\release\TibiaScarabEye.exe`.
-Para gerar uma pasta pronta para distribuir:
+Para gerar o instalador (publica o programa autocontido e compila o instalador
+com o Inno Setup, baixado como pacote NuGet):
 
 ```powershell
-dotnet publish src\TibiaScarabEye -c Release -r win-x64 --self-contained false
+powershell -File installeruild.ps1 -Version 0.1.0
 ```
+
+O instalador sai em `installer\Output\TibiaScarabEye-Setup-<versão>.exe`.
 
 ### Testes
 
@@ -124,6 +136,7 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 | `src/TibiaScarabEye/UI/` | Janela principal, editor de áreas, overlays e tema |
 | `tests/TibiaScarabEye.Tests/` | Testes xUnit (unitários e de desktop) |
 | `obs/TibiaScarabEye.lua` | Script do OBS: cria as overlays como grupos na cena |
+| `installer/` | Script do Inno Setup e `build.ps1`, que gera o instalador |
 | `docs/LEIA-ME.txt` | Instruções de uso e instalação no OBS |
 | `Directory.Build.props`, `Directory.Packages.props`, `global.json` | Propriedades comuns, versões de pacotes e versão do SDK |
 
