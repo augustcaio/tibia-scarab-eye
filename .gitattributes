@@ -10,4 +10,6 @@
 *.yml text eol=lf
 *.json text eol=lf
 *.png binary
+*.gif binary
+*.wav binary
 *.exe binary

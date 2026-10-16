@@ -53,6 +53,19 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
   salvo, sem botão de salvar. Em **Opções** há duplicar, renomear, excluir,
   exportar (este preset ou todos) e importar, que também abre os layouts
   salvos pelas versões antigas.
+- **Alertas sonoros de plasma.** O Collar of Red Plasma e o Ring of Red Plasma
+  duram 30 minutos equipados. Na janela principal cada item tem o seu sprite e
+  um interruptor ON/OFF. O programa reconhece o sprite dentro das áreas que
+  você recortou (cubra o slot do colar e o do anel no editor), toca um alerta
+  quando o item é equipado e outro quando faltam 1 minuto e 30 segundos, para
+  você trocar e poupar o item. A contagem só corre com o item equipado: se você
+  o tira com mais de 1:30 sobrando ela pausa e continua quando ele volta; se o
+  tira depois do aviso, o próximo é tratado como item novo (30:00). Clique
+  direito na linha > **Zerar contagem** corrige o palpite. Os sons são arquivos
+  WAV na pasta `src/TibiaScarabEye/Assets/Sounds/` (equipado, aviso, retirado
+  e um aviso combinado para quando os dois chegam juntos ao 1:30; veja o
+  `LEIA-ME.txt` de lá). Três ícones ao lado do interruptor tocam cada alerta
+  para teste.
 - **Sincroniza com o OBS.** As overlays aparecem na cena, acima da captura do
   jogo, e acompanham o que você muda no programa em cerca de 100 ms.
 
@@ -150,6 +163,8 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 | `src/TibiaScarabEye/Interop/` | P/Invoke e DWM. `Native.ThumbnailBounds` é a origem correta das coordenadas da miniatura; `TibiaLocator` acha o cliente do Tibia |
 | `src/TibiaScarabEye/Layouts/` | `RegionSpec`, `Preset` e `PresetStore` (presets por personagem, exportar e importar); `Layout` é o formato antigo, que ainda pode ser importado |
 | `src/TibiaScarabEye/Obs/` | `ObsBridge` publica o layout para o OBS a cada 100 ms |
+| `src/TibiaScarabEye/Alerts/` | Alertas de plasma: `PlasmaTimer` (contagem), `SpriteTemplate` (reconhece o sprite), `WindowCapture` (lê a janela do jogo), `PlasmaMonitor` e `FileAlertSound` |
+| `src/TibiaScarabEye/Assets/` | Ícone, sprites dos itens (`Sprites/`, embutidos no executável) e `Sounds/` com o guia dos WAV dos alertas |
 | `src/TibiaScarabEye/UI/` | Janela principal, editor de áreas, overlays e tema |
 | `tests/TibiaScarabEye.Tests/` | Testes xUnit (unitários e de desktop) |
 | `obs/TibiaScarabEye.lua` | Script do OBS: cria as overlays como grupos na cena |
@@ -177,6 +192,13 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 - Jogo em tela cheia exclusiva não foi testado. O programa depende das
   miniaturas do DWM, então o recomendado é o Tibia em janela ou maximizado.
 - Com monitores de escalas diferentes, o alinhamento não foi verificado.
+- O reconhecimento do sprite lê a imagem da janela do jogo (PrintWindow), na
+  escala 1:1 e com o cliente em janela ou maximizado; com o Tibia em tela
+  cheia exclusiva ou com a interface escalada ele pode não enxergar o item. O
+  sprite precisa estar dentro de alguma área do preset ativo: um colar dentro
+  de uma área que cubra a mochila também conta como equipado, então cubra só
+  os slots. O reconhecimento com o Tibia real ainda não foi exercitado nesta
+  base.
 - O script do OBS foi validado no OBS 32.2.2 com fonte de imagem. Com o
   Tibia real ainda não foi exercitado nesta base.
 
@@ -187,5 +209,7 @@ Todos os direitos do programa pertencem a [augustcaio](https://github.com/august
 ## Avisos
 
 Tibia é marca registrada da CipSoft GmbH. Este programa é um projeto de fã, sem
-vínculo com a CipSoft nem aprovação dela. Ele não usa imagens do jogo: as
-molduras e cores da interface são desenhadas pelo próprio programa.
+vínculo com a CipSoft nem aprovação dela. As molduras e cores da
+interface são desenhadas pelo próprio programa. A exceção são os sprites do
+Collar of Red Plasma e do Ring of Red Plasma (obtidos na Tibia Wiki), usados na
+janela principal e para reconhecer o item; eles pertencem à CipSoft.

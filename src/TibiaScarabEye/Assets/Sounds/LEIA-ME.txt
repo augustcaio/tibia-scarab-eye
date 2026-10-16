@@ -1,0 +1,15 @@
+SONS DOS ALERTAS DE PLASMA
+
+Arquivos WAV desta pasta (copiados para a pasta sounds ao lado do programa). Para trocar um som sem recompilar,
+coloque um arquivo com o mesmo nome em %LOCALAPPDATA%\TibiaScarabEye\sounds, que tem prioridade.
+
+  collar-on.wav        o Collar of Red Plasma foi equipado
+  collar-warning.wav   faltam 1 minuto e 30 segundos para o colar acabar
+  collar-off.wav       o colar saiu do slot (trocado ou vencido)
+  ring-on.wav          o Ring of Red Plasma foi equipado
+  ring-warning.wav     faltam 1 minuto e 30 segundos para o anel acabar
+  ring-off.wav         o anel saiu do slot (trocado ou vencido)
+  plasmas-warning.wav  os dois itens chegam ao aviso com até 10 s de diferença (toca no lugar dos dois avisos)
+
+Formato: WAV PCM de 16 bits (o player do Windows não toca WAV de ponto flutuante de 32 bits). Sem o arquivo,
+o programa toca um som padrão do Windows no lugar.

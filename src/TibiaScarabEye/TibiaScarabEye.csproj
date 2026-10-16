@@ -20,6 +20,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Sprites do Collar e do Ring of Red Plasma: aparecem na janela e são o que o programa procura nas áreas recortadas. -->
+    <EmbeddedResource Include="Assets\Sprites\*.gif" LogicalName="Sprites.%(Filename)%(Extension)" />
+    <!-- Sons dos alertas (WAV do jogador) e o guia de nomes; vão para a pasta sounds ao lado do executável. -->
+    <Content Include="Assets\Sounds\*" Link="sounds\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

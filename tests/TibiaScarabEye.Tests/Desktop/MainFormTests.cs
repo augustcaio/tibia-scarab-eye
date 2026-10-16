@@ -68,6 +68,7 @@ public class MainFormTests
         DesktopHarness.SetField(rig.Main, "visibilityHotkey", true);
         rig.Detect();
         DesktopHarness.Call(rig.Main, "UpdateStatus");
+        DesktopHarness.Call(rig.Main, "TickAlerts"); // as linhas de alerta mostram o estado depois da primeira leitura
 
         using var bitmap = DesktopHarness.RenderShaped(rig.Main);
         DesktopHarness.SaveArtifact(bitmap, "interface-preview.png");

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Diagnostics;
 using System.Windows.Forms;
+using TibiaScarabEye.Alerts;
 using TibiaScarabEye.Interop;
 using TibiaScarabEye.Layouts;
 using TibiaScarabEye.Obs;
@@ -21,6 +23,14 @@ internal sealed class MainForm : FramelessForm {
     readonly ComboBox presets=new ComboBox();
     readonly Button newPreset, options, editor, mode, visibility, obsCapture;
     readonly Label areaInfo, obsStatus, status;
+    readonly Dictionary<PlasmaItem,AlertRow> alertRows=new Dictionary<PlasmaItem,AlertRow>();
+    readonly PlasmaMonitor plasma;
+    readonly AlertSettings alertSettings;
+    readonly string alertsPath;
+    readonly WindowCapture windowCapture=new WindowCapture();
+    // Recebe a janela do jogo e devolve o quadro de pixels (null se não deu para ler); os testes trocam por um quadro fixo.
+    readonly Func<IntPtr,PixelBuffer> capture;
+    readonly Timer alertTimer=new Timer();
     readonly ContextMenuStrip menu=new ContextMenuStrip();
     readonly ToolStripMenuItem duplicateItem, renameItem, deleteItem, exportOneItem, exportAllItem, importItem;
     readonly TableLayoutPanel layout;
@@ -37,8 +47,12 @@ internal sealed class MainForm : FramelessForm {
     string character="";
 
     public MainForm() : this(PresetStore.DefaultPath,TibiaLocator.Find) { }
-    internal MainForm(string presetsPath,Func<IntPtr,TibiaWindow> locator) {
+    // Os parâmetros opcionais existem para os testes isolarem o arquivo de alertas, o som, a leitura da tela e o relógio.
+    internal MainForm(string presetsPath,Func<IntPtr,TibiaWindow> locator,string alertsPath=null,IAlertSound sound=null,Func<IntPtr,PixelBuffer> capture=null,Func<TimeSpan> clock=null) {
         this.locator=locator; store=PresetStore.Open(presetsPath);
+        this.alertsPath=alertsPath??AlertSettings.DefaultPath; alertSettings=AlertSettings.Load(this.alertsPath); this.capture=capture??windowCapture.Grab;
+        var watch=Stopwatch.StartNew();
+        plasma=new PlasmaMonitor(sound??new FileAlertSound(),clock??(Func<TimeSpan>)delegate { return watch.Elapsed; },delegate(PlasmaItem item) { return SpriteTemplate.FromResource(PlasmaInfo.SpriteResource(item)); });
         Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
         StartPosition=FormStartPosition.CenterScreen;
 
@@ -61,20 +75,41 @@ internal sealed class MainForm : FramelessForm {
         tips.SetToolTip(mode,"Ctrl + Shift + F8, mesmo com o painel minimizado"); tips.SetToolTip(visibility,"Ctrl + Shift + F9, mesmo com o painel minimizado");
         var actionsB=Table(Columns(PercentColumn(50),PercentColumn(50)),mode,visibility);
 
+        // Alertas dos itens de duração: o sprite do item e, ao lado, o interruptor ON/OFF. O programa reconhece o sprite nas áreas recortadas.
+        var alertsHeader=Theme.Caption("Alertas de plasma (30 min equipado; aviso aos 1:30)"); alertsHeader.Margin=new Padding(0,0,0,4);
+        foreach(var item in PlasmaInfo.All) {
+            var plasmaItem=item;
+            var row=new AlertRow(PlasmaInfo.Name(plasmaItem),SpriteTemplate.LoadBitmap(PlasmaInfo.SpriteResource(plasmaItem)));
+            alertRows[plasmaItem]=row;
+            tips.SetToolTip(row.Switch,"Liga ou desliga o alerta sonoro do "+PlasmaInfo.Name(plasmaItem)+". Ele só enxerga o sprite se uma área do preset cobrir o slot do item.");
+            row.ContextMenuStrip=DarkMenu();
+            var reset=new ToolStripMenuItem("Zerar contagem (item novo)") { ForeColor=Theme.Ink };
+            reset.Click+=delegate { plasma.Restart(plasmaItem); RefreshAlertRows(); };
+            var both=new ToolStripMenuItem("Ouvir o aviso dos dois itens") { ForeColor=Theme.Ink };
+            both.Click+=delegate { plasma.PreviewCombinedWarning(); };
+            row.ContextMenuStrip.Items.AddRange(new ToolStripItem[]{reset,both});
+            row.TestRequested+=delegate(AlertKind kind) { plasma.Preview(plasmaItem,kind); };
+            row.Checked=alertSettings.IsEnabled(plasmaItem); plasma.SetEnabled(plasmaItem,row.Checked);
+            row.CheckedChanged+=delegate { SetAlert(plasmaItem,row.Checked); };
+        }
+        var collarRow=alertRows[PlasmaItem.Collar]; var ringRow=alertRows[PlasmaItem.Ring];
+
         obsStatus=Theme.Note("No OBS: Ferramentas > Scripts > adicione obs/TibiaScarabEye.lua.");
         status=Theme.Note("");
 
-        var root=Table(Columns(PercentColumn(100)),lamp,presetRow,areaInfo,actionsA,actionsB,obsStatus,status);
+        var root=Table(Columns(PercentColumn(100)),lamp,presetRow,areaInfo,actionsA,actionsB,alertsHeader,collarRow,ringRow,obsStatus,status);
         lamp.Margin=new Padding(0,0,0,10); presetRow.Margin=new Padding(0,0,0,6); areaInfo.Margin=new Padding(0,0,0,10);
-        actionsA.Margin=new Padding(0,0,0,8); actionsB.Margin=new Padding(0,0,0,10); obsStatus.Margin=new Padding(0,0,0,4);
+        actionsA.Margin=new Padding(0,0,0,8); actionsB.Margin=new Padding(0,0,0,12); collarRow.Margin=new Padding(0,0,0,4); ringRow.Margin=new Padding(0,0,0,10); obsStatus.Margin=new Padding(0,0,0,4);
         root.AutoSize=false; root.Padding=Padding.Empty; layout=root;
         Controls.Add(root);
-        ClientSize=new Size(640,350); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,300));
+        ClientSize=new Size(640,480); MinimumSize=SizeFromClientSize(new Size(MinClientWidth,300));
 
         duplicateItem=Item("Duplicar preset",delegate { DuplicatePreset(); }); renameItem=Item("Renomear…",delegate { RenamePreset(); }); deleteItem=Item("Excluir preset",delegate { DeletePreset(); });
         exportOneItem=Item("Exportar este preset…",delegate { Export(false); }); exportAllItem=Item("Exportar todos os presets…",delegate { Export(true); }); importItem=Item("Importar…",delegate { Import(); });
         menu.Items.AddRange(new ToolStripItem[]{duplicateItem,renameItem,deleteItem,new ToolStripSeparator(),exportOneItem,exportAllItem,importItem});
         menu.Renderer=new ToolStripProfessionalRenderer(new DarkMenuColors()) { RoundedEdges=false }; menu.ForeColor=Theme.Ink; menu.BackColor=Color.FromArgb(39,39,37);
+        // 500 ms: o alerta de equipado sai cerca de 1 s depois de o sprite aparecer (duas leituras seguidas).
+        alertTimer.Interval=500; alertTimer.Tick+=delegate { TickAlerts(); }; alertTimer.Start();
 
         presets.SelectedIndexChanged+=delegate { var item=presets.SelectedItem as PresetItem; if(!binding && item!=null && item.Preset!=active) SwitchTo(item.Preset); };
         newPreset.Click+=delegate { NewPreset(); };
@@ -86,7 +121,10 @@ internal sealed class MainForm : FramelessForm {
         Shown+=delegate { hotkey=Native.RegisterHotKey(Handle,1,0x4006,(uint)Keys.F8); visibilityHotkey=Native.RegisterHotKey(Handle,2,0x4006,(uint)Keys.F9); DetectTibia(); UpdateStatus(); };
         timer.Interval=750; timer.Tick+=delegate { DetectTibia(); TickSource(); }; timer.Start();
         autosave.Interval=1500; autosave.Tick+=delegate { SaveActive(); };
-        RefreshPresetList(); UpdateStates(); ShowLamp(null);
+        RefreshPresetList(); UpdateStates(); ShowLamp(null); RefreshAlertRows();
+    }
+    static ContextMenuStrip DarkMenu() {
+        return new ContextMenuStrip { Renderer=new ToolStripProfessionalRenderer(new DarkMenuColors()) { RoundedEdges=false }, ForeColor=Theme.Ink, BackColor=Color.FromArgb(39,39,37) };
     }
     ToolStripMenuItem Item(string text,Action click) {
         var item=new ToolStripMenuItem(text) { ForeColor=Theme.Ink };
@@ -153,6 +191,50 @@ internal sealed class MainForm : FramelessForm {
         if(found==null) lamp.Set(LampState.Searching,"Procurando o Tibia","Abra o jogo: ele é detectado sozinho.");
         else if(Native.IsIconic(found.Handle)) lamp.Set(LampState.Minimized,"Tibia minimizado","Restaure a janela do jogo para continuar.");
         else lamp.Set(LampState.Reading,"Lendo o Tibia",character.Length>0?character:"nenhum personagem conectado");
+    }
+    // ----- Alertas de plasma -----
+    void SetAlert(PlasmaItem item,bool enabled) {
+        plasma.SetEnabled(item,enabled);
+        alertSettings.Set(item,enabled);
+        try { alertSettings.Save(alertsPath); } catch(Exception ex) when(ex is System.IO.IOException || ex is UnauthorizedAccessException) { status.Text="Não foi possível salvar os alertas: "+ex.Message; }
+        RefreshAlertRows();
+    }
+    // As áreas do preset ativo, nas coordenadas do quadro da janela do jogo (a mesma origem das áreas recortadas e das miniaturas).
+    List<Rectangle> SpriteAreas() {
+        var areas=new List<Rectangle>();
+        Native.Rect window=Native.ThumbnailBounds(source);
+        var size=new Size(window.Right-window.Left,window.Bottom-window.Top);
+        if(size.Width<1 || size.Height<1) return areas;
+        foreach(var overlay in overlays) areas.Add(overlay.Spec.Crop(size));
+        return areas;
+    }
+    void TickAlerts() {
+        if(!plasma.AnyEnabled) { plasma.Tick(null,new Rectangle[0]); RefreshAlertRows(); return; }
+        if(source==IntPtr.Zero || !Native.IsWindow(source)) { plasma.Pause(); RefreshAlertRows(); return; }
+        var areas=SpriteAreas();
+        // Minimizado ou sem área, não há o que ler; o estado fica como estava e as contagens seguem.
+        PixelBuffer frame=null;
+        if(areas.Count>0 && !Native.IsIconic(source)) {
+            try { frame=capture(source); }
+            catch(Exception ex) when(ex is ArgumentException || ex is InvalidOperationException || ex is System.Runtime.InteropServices.ExternalException) { frame=null; }
+        }
+        plasma.Tick(frame,areas);
+        RefreshAlertRows();
+    }
+    static string Clock(TimeSpan time) { return ((int)time.TotalMinutes)+":"+time.Seconds.ToString("00"); }
+    string AlertDetail(PlasmaReading reading) {
+        if(!reading.Enabled) return "Alerta desligado";
+        if(reading.Phase==PlasmaPhase.Equipped) return "Equipado · restam "+Clock(reading.Remaining);
+        if(reading.Phase==PlasmaPhase.Paused) return "Fora do slot · restam "+Clock(reading.Remaining)+" (pausado)";
+        switch(plasma.Source) {
+            case PlasmaSource.NoTibia: return "Aguardando o Tibia";
+            case PlasmaSource.NoAreas: return "Crie uma área sobre o slot do item";
+            case PlasmaSource.NoCapture: return "Sem leitura da tela do jogo";
+            default: return "Não equipado";
+        }
+    }
+    void RefreshAlertRows() {
+        foreach(var pair in alertRows) pair.Value.Detail=AlertDetail(plasma.Read(pair.Key));
     }
     bool Ready() {
         if(source==IntPtr.Zero || !Native.IsWindow(source)) { MessageBox.Show(this,"O Tibia não foi encontrado. Abra o jogo: o programa o detecta sozinho."); return false; }
@@ -381,9 +463,9 @@ internal sealed class MainForm : FramelessForm {
     }
     protected override void WndProc(ref Message m) { if(m.Msg==0x312) { if(m.WParam.ToInt32()==1) { ToggleMode(); return; } if(m.WParam.ToInt32()==2) { ToggleVisibility(); return; } } base.WndProc(ref m); }
     protected override void OnFormClosing(FormClosingEventArgs e) {
-        timer.Stop(); SaveActive(); ClearOverlays();
+        timer.Stop(); alertTimer.Stop(); SaveActive(); ClearOverlays();
         Native.UnregisterHotKey(Handle,1); Native.UnregisterHotKey(Handle,2);
         base.OnFormClosing(e);
     }
-    protected override void Dispose(bool disposing) { if(disposing) { timer.Dispose(); autosave.Dispose(); tips.Dispose(); menu.Dispose(); } base.Dispose(disposing); }
+    protected override void Dispose(bool disposing) { if(disposing) { timer.Dispose(); alertTimer.Dispose(); autosave.Dispose(); tips.Dispose(); menu.Dispose(); windowCapture.Dispose(); } base.Dispose(disposing); }
 }

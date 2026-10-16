@@ -28,6 +28,7 @@ internal static class Native {
     [DllImport("user32.dll")] internal static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] internal static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] internal static extern bool GetClientRect(IntPtr h, out Rect r);
+    [DllImport("user32.dll")] internal static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
     [DllImport("user32.dll")] internal static extern bool ClientToScreen(IntPtr h, ref PointI point);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
