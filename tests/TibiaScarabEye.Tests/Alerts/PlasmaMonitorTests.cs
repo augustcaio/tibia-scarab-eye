@@ -22,13 +22,14 @@ public class PlasmaMonitorTests
         public readonly FakeSound Sound = new FakeSound();
         public TimeSpan Now = TimeSpan.Zero;
         public readonly PlasmaMonitor Monitor;
+        public readonly List<string> Log = new();
         public readonly PixelBuffer WithCollar = Frames.With(200, 150, (PlasmaItem.Collar, new Point(20, 20)));
         public readonly PixelBuffer WithRing = Frames.With(200, 150, (PlasmaItem.Ring, new Point(20, 20)));
         public readonly PixelBuffer Empty = Frames.Empty();
 
         public Rig(bool collar = true, bool ring = true)
         {
-            Monitor = new PlasmaMonitor(Sound, () => Now, Frames.Template);
+            Monitor = new PlasmaMonitor(Sound, () => Now, Frames.Template, Log.Add);
             Monitor.SetEnabled(PlasmaItem.Collar, collar);
             Monitor.SetEnabled(PlasmaItem.Ring, ring);
         }
@@ -226,6 +227,24 @@ public class PlasmaMonitorTests
 
         Assert.Equal(new[] { (PlasmaItem.Collar, AlertKind.Removed) }, rig.Sound.Played);
         Assert.Equal(1, rig.Sound.Combined);
+    }
+
+    [Fact]
+    public void TheLogTellsEquippedWarningRemovedAndWhereTheImagesCameFrom()
+    {
+        var rig = new Rig();
+        rig.Monitor.Tick(null);
+        rig.Tick(rig.WithCollar, 2);
+        rig.Advance(new TimeSpan(0, 28, 30));
+        rig.Tick(rig.WithCollar);
+        rig.Tick(rig.Empty, PlasmaMonitor.MissesToRemove);
+
+        Assert.Contains(rig.Log, l => l == "fonte: sem imagem do OBS");
+        Assert.Contains(rig.Log, l => l == "fonte: lendo as imagens do OBS");
+        int equipped = rig.Log.FindIndex(l => l.StartsWith("Collar of Red Plasma: equipado (restam 30:00"));
+        int warned = rig.Log.FindIndex(l => l.StartsWith("Collar of Red Plasma: aviso (restam 1:"));
+        int removed = rig.Log.FindIndex(l => l.StartsWith("Collar of Red Plasma: retirado"));
+        Assert.True(equipped >= 0 && warned > equipped && removed > warned, string.Join(" | ", rig.Log));
     }
 
     [Fact]

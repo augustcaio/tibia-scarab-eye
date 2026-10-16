@@ -154,6 +154,11 @@ estado fica salvo em %LOCALAPPDATA%\TibiaScarabEye\alerts.json).
   ao 1:30 com até 10 segundos de diferença. Para trocar um som, ponha um
   arquivo de mesmo nome em %LOCALAPPDATA%\TibiaScarabEye\sounds (tem
   prioridade). Sem o arquivo toca um som padrão do Windows.
+- Registro: %LOCALAPPDATA%\TibiaScarabEye\alerts.log traz, com a hora, cada equipado,
+  retirado, aviso e vencimento, e quando o programa perde ou recupera as imagens do
+  OBS ou o Tibia. Se um alerta não tocar, ele mostra o que o programa viu (ou deixou
+  de ver) naquele momento. O relógio da linha arredonda para cima: mostra 1:30 até
+  o aviso tocar, no instante em que faltam 1:30 ou menos.
 - Testar os alertas: ao lado do interruptor há três ícones por item, que tocam
   na hora: triângulo (equipado), exclamação (aviso de 1:30) e X (retirado). O
   clique direito na linha tem "Ouvir o aviso dos dois itens". Funcionam mesmo

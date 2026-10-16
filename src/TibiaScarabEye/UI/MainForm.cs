@@ -27,6 +27,7 @@ internal sealed class MainForm : FramelessForm {
     readonly PlasmaMonitor plasma;
     readonly AlertSettings alertSettings;
     readonly string alertsPath;
+    readonly AlertLog alertLog;
     // As imagens das áreas recortadas que o script do OBS grava (null sem imagens recentes); os testes trocam por imagens fixas.
     readonly Func<IReadOnlyList<PixelBuffer>> sight;
     readonly Timer alertTimer=new Timer();
@@ -49,10 +50,11 @@ internal sealed class MainForm : FramelessForm {
     // Os parâmetros opcionais existem para os testes isolarem o arquivo de alertas, o som, a leitura da tela e o relógio.
     internal MainForm(string presetsPath,Func<IntPtr,TibiaWindow> locator,string alertsPath=null,IAlertSound sound=null,Func<IReadOnlyList<PixelBuffer>> sight=null,Func<TimeSpan> clock=null) {
         this.locator=locator; store=PresetStore.Open(presetsPath);
-        this.alertsPath=alertsPath??AlertSettings.DefaultPath; alertSettings=AlertSettings.Load(this.alertsPath); this.sight=sight??new ObsSightReader().Read;
+        this.alertsPath=alertsPath??AlertSettings.DefaultPath; alertLog=new AlertLog(System.IO.Path.ChangeExtension(this.alertsPath,".log")); alertSettings=AlertSettings.Load(this.alertsPath); this.sight=sight??new ObsSightReader().Read;
         var watch=Stopwatch.StartNew();
         if(sound==null) { var files=new FileAlertSound(); files.Preload(); sound=files; }
-        plasma=new PlasmaMonitor(sound,clock??(Func<TimeSpan>)delegate { return watch.Elapsed; },delegate(PlasmaItem item) { return SpriteTemplate.FromResource(PlasmaInfo.SpriteResource(item)); });
+        plasma=new PlasmaMonitor(sound,clock??(Func<TimeSpan>)delegate { return watch.Elapsed; },delegate(PlasmaItem item) { return SpriteTemplate.FromResource(PlasmaInfo.SpriteResource(item)); },alertLog.Write);
+        alertLog.Write("programa aberto (build "+BuildStamp()+")");
         Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
         StartPosition=FormStartPosition.CenterScreen;
 
@@ -164,9 +166,18 @@ internal sealed class MainForm : FramelessForm {
     void Safe(Action action) { try { action(); } catch(Exception ex) { MessageBox.Show(this,ex.Message,"Tibia Scarab Eye",MessageBoxButtons.OK,MessageBoxIcon.Warning); } }
 
     // ----- O Tibia: detectado sozinho -----
+    // O Tibia só vale como fechado depois de sumir por alguns instantes seguidos: um título que muda por um momento (entrar, sair ou
+    // trocar de personagem) não pode parar a sincronização com o OBS nem pausar a contagem dos itens.
+    internal const int MissesToDetach=4;
+    int tibiaMisses;
     void DetectTibia() {
         var found=locator(source);
-        if(found==null) { if(source!=IntPtr.Zero) DetachTibia(); ShowLamp(null); return; }
+        if(found==null) {
+            if(source!=IntPtr.Zero && ++tibiaMisses>=MissesToDetach) { alertLog.Write("Tibia sumiu: sincronização e áreas encerradas"); DetachTibia(); }
+            if(source==IntPtr.Zero) ShowLamp(null);
+            return;
+        }
+        tibiaMisses=0;
         if(found.Handle!=source) AttachTibia(found);
         else if(!string.Equals(found.Character??"",character,StringComparison.OrdinalIgnoreCase)) ChangeCharacter(found.Character);
         ShowLamp(found);
@@ -174,6 +185,7 @@ internal sealed class MainForm : FramelessForm {
     void AttachTibia(TibiaWindow found) {
         SaveActive();
         source=found.Handle; character=found.Character??"";
+        alertLog.Write("Tibia encontrado ("+(character.Length>0?character:"sem personagem")+")");
         Safe(delegate { LoadPreset(active!=null && active.AppliesTo(character)?active:store.Pick(character)); });
     }
     // O mesmo cliente, outro personagem (saiu e entrou): troca para o preset dele.
@@ -213,7 +225,11 @@ internal sealed class MainForm : FramelessForm {
         plasma.Tick(areas);
         RefreshAlertRows();
     }
-    static string Clock(TimeSpan time) { return ((int)time.TotalMinutes)+":"+time.Seconds.ToString("00"); }
+    // Contagem regressiva arredondada para cima: o relógio mostra 1:30 até o aviso sair, no instante em que passa a faltar 1:30 ou menos.
+    static string Clock(TimeSpan time) {
+        int total=(int)Math.Ceiling(time.TotalSeconds);
+        return (total/60)+":"+(total%60).ToString("00");
+    }
     string AlertDetail(PlasmaReading reading) {
         if(!reading.Enabled) return "Alerta desligado";
         if(reading.Phase==PlasmaPhase.Equipped) return "Equipado · restam "+Clock(reading.Remaining);

@@ -33,8 +33,10 @@ internal sealed class PlasmaMonitor {
     // A última lista de imagens observada: a mesma lista de novo é o mesmo quadro e não conta como outra leitura.
     IReadOnlyList<PixelBuffer> lastFrame;
 
-    public PlasmaMonitor(IAlertSound sound,Func<TimeSpan> clock,Func<PlasmaItem,SpriteTemplate> sprites) {
-        this.sound=sound; this.clock=clock; Source=PlasmaSource.NoTibia;
+    readonly Action<string> log;
+
+    public PlasmaMonitor(IAlertSound sound,Func<TimeSpan> clock,Func<PlasmaItem,SpriteTemplate> sprites,Action<string> log=null) {
+        this.sound=sound; this.clock=clock; this.log=log??delegate(string message) { }; Source=PlasmaSource.NoTibia;
         foreach(var item in PlasmaInfo.All) tracks[item]=new Track { Item=item, Sprite=sprites(item) };
     }
 
@@ -61,6 +63,7 @@ internal sealed class PlasmaMonitor {
 
     // O jogo fechou ou saiu do ar: as contagens pausam e a leitura recomeça quando ele voltar.
     public void Pause() {
+        if(Source!=PlasmaSource.NoTibia) log("fonte: Tibia fora do ar, contagens pausadas");
         Source=PlasmaSource.NoTibia;
         TimeSpan now=clock();
         foreach(var track in tracks.Values) { track.Timer.Pause(now); track.Present=false; track.Hits=track.Misses=0; }
@@ -71,16 +74,19 @@ internal sealed class PlasmaMonitor {
     // recentes (aí o estado fica como estava e as contagens seguem).
     public void Tick(IReadOnlyList<PixelBuffer> areas) {
         TimeSpan now=clock();
-        Source=areas==null?PlasmaSource.NoObs:areas.Count==0?PlasmaSource.NoAreas:PlasmaSource.Reading;
+        var source=areas==null?PlasmaSource.NoObs:areas.Count==0?PlasmaSource.NoAreas:PlasmaSource.Reading;
+        if(source!=Source) log("fonte: "+Describe(source));
+        Source=source;
         bool sameFrame=areas!=null && ReferenceEquals(areas,lastFrame);
         lastFrame=areas;
         foreach(var track in tracks.Values) {
             if(!track.Enabled) continue;
             bool removed=Source==PlasmaSource.Reading && !sameFrame && Observe(track,track.Sprite.Find(areas));
             var events=track.Timer.Update(track.Present,now);
-            if((events&PlasmaEvent.Equipped)!=0) sound.Play(track.Item,AlertKind.Equipped);
-            if((events&PlasmaEvent.Warning)!=0) Warn(track,now);
-            if(removed) sound.Play(track.Item,AlertKind.Removed);
+            if((events&PlasmaEvent.Equipped)!=0) { log(PlasmaInfo.Name(track.Item)+": equipado (restam "+Clock(track.Timer.Remaining(now))+")"); sound.Play(track.Item,AlertKind.Equipped); }
+            if((events&PlasmaEvent.Warning)!=0) { log(PlasmaInfo.Name(track.Item)+": aviso (restam "+Clock(track.Timer.Remaining(now))+")"); Warn(track,now); }
+            if((events&PlasmaEvent.Expired)!=0) log(PlasmaInfo.Name(track.Item)+": venceu");
+            if(removed) { log(PlasmaInfo.Name(track.Item)+": retirado ("+track.Timer.Phase+", restam "+Clock(track.Timer.Remaining(now))+")"); sound.Play(track.Item,AlertKind.Removed); }
         }
     }
     // Um único aviso quando o outro item está equipado e chega ao seu aviso em até CombineWithin: o áudio dos dois, e o outro não repete.
@@ -88,11 +94,20 @@ internal sealed class PlasmaMonitor {
         foreach(var other in tracks.Values) {
             if(other==track || !other.Enabled || other.Timer.Phase!=PlasmaPhase.Equipped || other.Timer.Warned) continue;
             if(other.Timer.Remaining(now)>PlasmaTimer.WarnAt+CombineWithin) continue;
-            other.Timer.MarkWarned(); sound.PlayCombinedWarning();
+            other.Timer.MarkWarned(); log("aviso combinado com "+PlasmaInfo.Name(other.Item)); sound.PlayCombinedWarning();
             return;
         }
         sound.Play(track.Item,AlertKind.Warning);
     }
+    static string Describe(PlasmaSource source) {
+        switch(source) {
+            case PlasmaSource.NoObs: return "sem imagem do OBS";
+            case PlasmaSource.NoAreas: return "o OBS não mandou áreas";
+            case PlasmaSource.NoTibia: return "sem Tibia";
+            default: return "lendo as imagens do OBS";
+        }
+    }
+    static string Clock(TimeSpan time) { return ((int)time.TotalMinutes)+":"+time.Seconds.ToString("00"); }
     // Devolve true quando o sprite acabou de sumir (o item foi tirado do slot).
     static bool Observe(Track track,bool found) {
         if(found) { track.Misses=0; if(++track.Hits>=HitsToEquip) track.Present=true; return false; }
