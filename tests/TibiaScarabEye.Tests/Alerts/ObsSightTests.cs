@@ -49,6 +49,22 @@ public class ObsSightTests : IDisposable
     }
 
     [Fact]
+    public void Parse_AcceptsTheOlderHeaderWithoutSequence()
+    {
+        // O OBS pode ainda ter carregado a versao anterior do script: sem sequencia, cada leitura vale como quadro novo.
+        var bytes = Encoding.ASCII.GetBytes("TSEYE1\n1000 abc123 1\n2 1\n").Concat(new byte[8]).ToArray();
+
+        var sight = ObsSight.Parse(bytes);
+
+        Assert.Equal(0, sight.Sequence);
+        Assert.Single(sight.Areas);
+        string path = Path.Combine(folder, "obs-sight.bin");
+        File.WriteAllBytes(path, bytes);
+        var reader = new ObsSightReader(path, () => 1000);
+        Assert.NotSame(reader.Read(), reader.Read());
+    }
+
+    [Fact]
     public void Parse_AcceptsAnEmptyList()
     {
         Assert.Empty(ObsSight.Parse(Build(100)).Areas);
@@ -57,7 +73,7 @@ public class ObsSightTests : IDisposable
     [Theory]
     [InlineData("OUTRO\n1 a 0 1\n")]
     [InlineData("TSEYE1\nnao-e-numero a 0 1\n")]
-    [InlineData("TSEYE1\n1 a 0\n")] // sem a sequencia (formato antigo)
+    [InlineData("TSEYE1\n1 a 0 1 9\n")] // campos demais
     [InlineData("TSEYE1\n1 a 31 1\n")]
     [InlineData("TSEYE1\n1 a 1 1\n513 10\n")]
     [InlineData("TSEYE1\n1 a 1 1\n0 10\n")]

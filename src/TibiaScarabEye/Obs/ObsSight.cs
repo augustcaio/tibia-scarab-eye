@@ -28,8 +28,9 @@ internal sealed class ObsSight {
         if(ReadLine(data,ref at)!=Magic) throw new InvalidDataException("Arquivo de imagens do OBS desconhecido.");
         string[] head=ReadLine(data,ref at).Split(' ');
         long heartbeat; int count;
-        long sequence;
-        if(head.Length!=4 || !long.TryParse(head[0],out heartbeat) || !int.TryParse(head[2],out count) || !long.TryParse(head[3],out sequence) || count<0 || count>MaxAreas) throw new InvalidDataException("Cabeçalho inválido.");
+        // Versão anterior do script (ainda carregada no OBS depois de atualizar o programa): sem sequência, que vale 0.
+        long sequence=0;
+        if((head.Length!=3 && head.Length!=4) || !long.TryParse(head[0],out heartbeat) || !int.TryParse(head[2],out count) || (head.Length==4 && !long.TryParse(head[3],out sequence)) || count<0 || count>MaxAreas) throw new InvalidDataException("Cabeçalho inválido.");
         var sight=new ObsSight { Heartbeat=heartbeat, Session=head[1], Sequence=sequence };
         for(int i=0;i<count;i++) {
             string[] size=ReadLine(data,ref at).Split(' ');
@@ -78,7 +79,8 @@ internal sealed class ObsSightReader {
                 }
                 var parsed=ObsSight.Parse(bytes);
                 // O mesmo quadro lido de novo mantém a mesma lista: quem lê sabe que não é uma observação nova.
-                if(last==null || last.Session!=parsed.Session || last.Sequence!=parsed.Sequence) last=parsed; else last.Heartbeat=parsed.Heartbeat;
+                // Sem sequência (script antigo, 0) cada leitura vale como quadro novo.
+                if(last==null || parsed.Sequence==0 || last.Session!=parsed.Session || last.Sequence!=parsed.Sequence) last=parsed; else last.Heartbeat=parsed.Heartbeat;
             }
         } catch(Exception ex) when(ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException) { }
         if(last==null) return null;
