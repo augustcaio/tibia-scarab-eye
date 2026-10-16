@@ -1,7 +1,7 @@
 # Gera o instalador: publica o programa (autocontido, nao precisa do .NET instalado) e compila o instalador com o Inno Setup.
-# Uso: pwsh installer\build.ps1 [-Version 0.1.0]
+# Uso: pwsh installer\build.ps1 [-Version 0.2.0]
 # Saida: installer\Output\TibiaScarabEye-Setup-<versao>.exe
-param([string]$Version = "0.1.0")
+param([string]$Version = "0.2.0")
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root

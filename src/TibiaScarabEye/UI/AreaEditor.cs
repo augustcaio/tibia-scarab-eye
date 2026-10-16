@@ -15,7 +15,8 @@ namespace TibiaScarabEye.UI;
 internal sealed class AreaEditor : Form {
     // Encaixe denso e fixo, sem desenhar a grade: 8 px de célula posicionam com precisão sem poluir a prévia.
     internal const int CellPixels=8;
-    const int MaxAreas=30, PanelWidth=250, GuidePixels=6, PanelRows=7, RowHeight=34;
+    const int MaxAreas=30, PanelWidth=250, GuidePixels=6, PanelRows=8, RowHeight=34;
+    static readonly double[] OverlaySizes={.5,.75,1,1.25,1.5,2,3};
     static readonly double[] ZoomLevels={1,2,4,8};
     sealed class Item {
         public Overlay Overlay;
@@ -31,12 +32,12 @@ internal sealed class AreaEditor : Form {
     readonly List<Item> selection=new List<Item>();
     readonly EditorAdorner adorner=new EditorAdorner();
     readonly EditorHistory history=new EditorHistory();
-    readonly ComboBox name=new ThemedComboBox(), zoomBox=new ThemedComboBox();
+    readonly ComboBox name=new ComboBox(), zoomBox=new ComboBox();
     readonly CheckBox squareOnly=new CheckBox(), slotSnap=new CheckBox();
     readonly NumericUpDown exactX=new NumericUpDown(), exactY=new NumericUpDown(), exactW=new NumericUpDown(), exactH=new NumericUpDown(), opacityBox=new NumericUpDown();
     readonly LayerList layerList=new LayerList();
-    readonly Control layersLabel;
-    readonly Label opacityLabel, pixelLabel;
+    readonly Label layersLabel, opacityLabel, sizeLabel, pixelLabel;
+    readonly ComboBox sizeBox=new ComboBox();
     readonly Button done, undoButton, redoButton, upButton, downButton, duplicateButton, removeButton;
     readonly Button[] alignButtons=new Button[6];
     readonly Button distributeH, distributeV;
@@ -85,7 +86,7 @@ internal sealed class AreaEditor : Form {
             fields[i].ValueChanged+=delegate { ApplyFields(); }; Controls.Add(fields[i]);
         }
 
-        layersLabel=new SectionHeader("Camadas"); Controls.Add(layersLabel);
+        layersLabel=Theme.Label("Camadas (de cima para baixo)",0,0,PanelWidth,22,true); Controls.Add(layersLabel);
         layerList.EyeClicked+=delegate(int row) { ToggleLayer(row,true); };
         layerList.LockClicked+=delegate(int row) { ToggleLayer(row,false); };
         layerList.SelectedIndexChanged+=delegate { SelectFromList(); };
@@ -97,6 +98,8 @@ internal sealed class AreaEditor : Form {
         for(int i=0;i<alignButtons.Length;i++) { var kind=(Geometry.AlignKind)i; alignButtons[i]=PanelButton(alignText[i],alignTip[i],delegate { AlignSelected(kind); }); }
         distributeH=PanelButton("Dist. H","Distribuir na horizontal (3 ou mais áreas)",delegate { DistributeSelected(true); });
         distributeV=PanelButton("Dist. V","Distribuir na vertical (3 ou mais áreas)",delegate { DistributeSelected(false); });
+        sizeLabel=Theme.Label("Tamanho",0,0,110,24,true); Controls.Add(sizeLabel);
+        sizeBox.DropDownStyle=ComboBoxStyle.DropDownList; sizeBox.Items.AddRange(new object[]{"50%","75%","100%","125%","150%","200%","300%"}); sizeBox.Enabled=false; sizeBox.SelectedIndexChanged+=delegate { ApplySize(); }; Controls.Add(sizeBox);
         opacityLabel=Theme.Label("Opacidade (%)",0,0,110,24,true); Controls.Add(opacityLabel);
         opacityBox.Minimum=20; opacityBox.Maximum=100; opacityBox.Value=100; opacityBox.Enabled=false; opacityBox.ValueChanged+=delegate { ApplyOpacity(); }; Controls.Add(opacityBox);
 
@@ -138,7 +141,7 @@ internal sealed class AreaEditor : Form {
     void LayoutControls() {
         done.Top=ClientSize.Height-50; pixelLabel.Top=done.Top+10;
         int x=ClientSize.Width-PanelWidth-20, half=(PanelWidth-6)/2, third=(PanelWidth-12)/3, blockTop=ClientSize.Height-112-PanelRows*RowHeight;
-        layersLabel.SetBounds(x,122,PanelWidth,26);
+        layersLabel.SetBounds(x,126,PanelWidth,22);
         layerList.SetBounds(x,150,PanelWidth,Math.Max(60,blockTop-150-8));
         Action<Control,int,int,int> place=delegate(Control c,int row,int column,int width) { c.SetBounds(x+column*(width+6),blockTop+row*RowHeight,width,28); };
         place(undoButton,0,0,half); place(redoButton,0,1,half);
@@ -147,6 +150,7 @@ internal sealed class AreaEditor : Form {
         for(int i=0;i<3;i++) { place(alignButtons[i],3,i,third); place(alignButtons[i+3],4,i,third); }
         place(distributeH,5,0,half); place(distributeV,5,1,half);
         opacityLabel.SetBounds(x,blockTop+6*RowHeight+4,110,24); opacityBox.SetBounds(x+120,blockTop+6*RowHeight,PanelWidth-120,28);
+        sizeLabel.SetBounds(x,blockTop+7*RowHeight+4,110,24); sizeBox.SetBounds(x+120,blockTop+7*RowHeight,PanelWidth-120,28);
     }
     Rectangle PreviewArea() { return new Rectangle(20,124,Math.Max(1,ClientSize.Width-40-PanelWidth-12),Math.Max(1,ClientSize.Height-124-112)); }
     double ViewScale { get { return preview.Width>0 && viewport.Width>0?(double)preview.Width/viewport.Width:1; } }
@@ -227,6 +231,7 @@ internal sealed class AreaEditor : Form {
         Rectangle crop=single?CropOf(primary):Rectangle.Empty;
         exactX.Value=crop.X; exactY.Value=crop.Y; exactW.Value=crop.Width; exactH.Value=crop.Height;
         opacityBox.Enabled=any; opacityBox.Value=any?Math.Max(20,Math.Min(100,primary.Spec.Opacity)):100;
+        sizeBox.Enabled=any; sizeBox.SelectedIndex=any?SizeIndexOf(primary):-1;
         removeButton.Enabled=duplicateButton.Enabled=upButton.Enabled=downButton.Enabled=any;
         int unlocked=Movable().Count;
         foreach(var button in alignButtons) button.Enabled=unlocked>=2;
@@ -504,6 +509,18 @@ internal sealed class AreaEditor : Form {
         if(text.Length==0) return;
         primary.Spec.Name=text; layerList.Invalidate(); RaiseChanged();
     }
+    // O tamanho da overlay em relação ao recorte (a escala que a overlay tem na tela); -1 se não for um dos valores da lista.
+    int SizeIndexOf(Item item) {
+        double factor=(double)item.Spec.Width/Math.Max(1,CropOf(item).Width);
+        for(int i=0;i<OverlaySizes.Length;i++) if(Math.Abs(factor-OverlaySizes[i])<0.03) return i;
+        return -1;
+    }
+    void ApplySize() {
+        if(binding || selection.Count==0 || sizeBox.SelectedIndex<0) return;
+        double factor=OverlaySizes[sizeBox.SelectedIndex];
+        Mutate(delegate { foreach(var item in selection) { item.Overlay.Zoom(factor); KeepInside(item.Overlay); DrawItem(item); } });
+        SyncFields(); Mark();
+    }
     void ApplyOpacity() {
         if(binding || selection.Count==0) return;
         int value=(int)opacityBox.Value;
@@ -558,11 +575,6 @@ internal sealed class AreaEditor : Form {
             SyncFields(); Mark();
         }
         return true;
-    }
-    // Barra de título escura, para a moldura do Windows acompanhar o tema (Windows 10 2004 ou mais novo; antes disso é ignorado).
-    protected override void OnHandleCreated(EventArgs e) {
-        base.OnHandleCreated(e);
-        Native.UseDarkTitleBar(Handle,Theme.Background,Theme.Ink);
     }
     protected override void OnKeyUp(KeyEventArgs e) {
         if(e.KeyCode==Keys.Space) { spaceDown=false; UpdateCursor(PointToClient(MousePosition)); }

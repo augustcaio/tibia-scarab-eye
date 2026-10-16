@@ -615,4 +615,24 @@ public class AreaEditorTests
 
         Assert.Equal(fixedTop, moving.Top);
     }
+
+    [WinFormsFact]
+    public void SizeBox_ScalesTheSelectedAreasAndShowsTheCurrentScale()
+    {
+        using var rig = TwoAreas(out var bottom, out var top);
+        var sizeBox = Field<ComboBox>(rig.Editor, "sizeBox");
+        Rectangle crop = bottom.Spec.Crop(rig.SourceSize);
+
+        Assert.False(sizeBox.Enabled);
+        Field<LayerList>(rig.Editor, "layerList").SetSelected(1, true); // camada de baixo
+        Assert.True(sizeBox.Enabled);
+
+        sizeBox.SelectedIndex = 5; // 200%
+
+        Assert.Equal(crop.Width * 2, bottom.Spec.Width);
+        Assert.Equal(5, sizeBox.SelectedIndex);
+        Assert.Equal(120, top.Spec.Width); // a outra area nao muda
+        rig.Press(Keys.Control | Keys.Z);
+        Assert.Equal(120, bottom.Spec.Width);
+    }
 }

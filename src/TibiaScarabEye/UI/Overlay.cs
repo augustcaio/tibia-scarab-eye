@@ -91,7 +91,7 @@ internal sealed class Overlay : Form {
     protected override void OnResizeEnd(EventArgs e) { base.OnResizeEnd(e); CaptureSpec(); if(Changed!=null) Changed(); }
     protected override void OnPaint(PaintEventArgs e) {
         base.OnPaint(e);
-        Theme.OverlayFrame(e.Graphics,ClientRectangle);
+        Theme.Frame(e.Graphics,ClientRectangle);
     }
     protected override void WndProc(ref Message m) {
         if(m.Msg==0x84 && !locked) {

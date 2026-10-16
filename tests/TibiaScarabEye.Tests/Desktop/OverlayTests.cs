@@ -119,11 +119,12 @@ public class OverlayTests
             using (var bitmap = new Bitmap(overlay.Width, overlay.Height))
             {
                 overlay.DrawToBitmap(bitmap, new Rectangle(Point.Empty, overlay.Size));
-                Assert.Equal(Color.FromArgb(4, 7, 8).ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+                Assert.Equal(Color.FromArgb(133, 133, 126).ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
                 SaveArtifact(bitmap, "overlay-border-preview.png");
             }
 
-            using (var main = new MainForm())
+            string presets = Path.Combine(Path.GetTempPath(), "tibiascarabeye-hotkey-" + Guid.NewGuid().ToString("N") + ".json");
+            using (var main = new MainForm(presets, prefer => new TibiaWindow { Handle = source.Handle, Title = "Tibia - Teste", Character = "Teste" }))
             {
                 SetField(main, "source", source.Handle);
                 Field<List<Overlay>>(main, "overlays").Add(overlay);
