@@ -229,6 +229,53 @@ public class PlasmaMonitorTests
         Assert.Equal(1, rig.Sound.Combined);
     }
 
+    private static PixelBuffer Timed(PlasmaItem item, string text) => Frames.WithTimers(48, 40, (item, new Point(2, 1), text));
+
+    [Fact]
+    public void TheWarningComesWhenTheGameShowsOneMinuteThirtyEvenIfOurClockDisagrees()
+    {
+        var rig = new Rig();
+        rig.Tick(Timed(PlasmaItem.Collar, "30m"), 2);
+        rig.Sound.Played.Clear();
+
+        rig.Advance(TimeSpan.FromMinutes(5)); // pelo nosso relogio ainda faltam 25 minutos
+        rig.Tick(Timed(PlasmaItem.Collar, "1m31"), 2);
+        Assert.Empty(rig.Sound.Played);
+
+        rig.Tick(Timed(PlasmaItem.Collar, "1m30"));
+        Assert.Equal(new[] { (PlasmaItem.Collar, AlertKind.Warning) }, rig.Sound.Played);
+        Assert.Equal("1m30", rig.Monitor.Read(PlasmaItem.Collar).GameText);
+
+        rig.Tick(Timed(PlasmaItem.Collar, "1m28"), 3);
+        Assert.Single(rig.Sound.Played);
+    }
+
+    [Fact]
+    public void TheTextOfTheOtherItemInTheSameAreaDoesNotTriggerTheWrongWarning()
+    {
+        var rig = new Rig();
+        var both = Frames.WithTimers(90, 40, (PlasmaItem.Collar, new Point(2, 1), "20m"), (PlasmaItem.Ring, new Point(46, 1), "1m30"));
+        rig.Tick(both, 5);
+
+        // o anel ja aparece em 1m30 e avisa; o colar, com 20m, nao
+        Assert.Equal(new[] { (PlasmaItem.Collar, AlertKind.Equipped), (PlasmaItem.Ring, AlertKind.Equipped), (PlasmaItem.Ring, AlertKind.Warning) }, rig.Sound.Played);
+        Assert.Equal("20m", rig.Monitor.Read(PlasmaItem.Collar).GameText);
+        Assert.Equal("1m30", rig.Monitor.Read(PlasmaItem.Ring).GameText);
+    }
+
+    [Fact]
+    public void AnUnreadableTimerIsLoggedWithTheAreaDrawingOnceInAWhile()
+    {
+        var rig = new Rig();
+        var unreadable = Timed(PlasmaItem.Collar, "1m3"); // falta o ultimo digito: nao se adivinha
+
+        rig.Tick(unreadable, 40);
+
+        Assert.Single(rig.Log, l => l.Contains("texto do tempo ilegível"));
+        Assert.True(rig.Monitor.Read(PlasmaItem.Collar).Present);
+        Assert.Null(rig.Monitor.Read(PlasmaItem.Collar).GameText);
+    }
+
     [Fact]
     public void TheLogTellsEquippedWarningRemovedAndWhereTheImagesCameFrom()
     {

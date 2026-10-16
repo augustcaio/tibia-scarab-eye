@@ -58,8 +58,10 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
   um interruptor ON/OFF. O script do OBS recorta as áreas do preset da Captura
   de jogo (o Windows não deixa o programa ler a janela do Tibia) e o programa
   reconhece o sprite ali (cubra o slot do colar e o do anel no editor); toca um alerta
-  quando o item é equipado e outro quando faltam 1 minuto e 30 segundos, para
-  você trocar e poupar o item. A contagem só corre com o item equipado: se você
+  quando o item é equipado e outro quando o tempo que o próprio Tibia mostra embaixo
+  do item chega a 1m30 (o programa lê esse número da imagem do OBS), para
+  você trocar e poupar o item. Se o número não puder ser lido, vale uma contagem
+  própria de 30 minutos, que só corre com o item equipado: se você
   o tira com mais de 1:30 sobrando ela pausa e continua quando ele volta; se o
   tira depois do aviso, o próximo é tratado como item novo (30:00). Clique
   direito na linha > **Zerar contagem** corrige o palpite. Os sons são arquivos

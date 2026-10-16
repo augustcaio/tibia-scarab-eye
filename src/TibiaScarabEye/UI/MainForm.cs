@@ -232,7 +232,7 @@ internal sealed class MainForm : FramelessForm {
     }
     string AlertDetail(PlasmaReading reading) {
         if(!reading.Enabled) return "Alerta desligado";
-        if(reading.Phase==PlasmaPhase.Equipped) return "Equipado · restam "+Clock(reading.Remaining);
+        if(reading.Phase==PlasmaPhase.Equipped) return reading.GameText!=null?"Equipado · "+reading.GameText+" no jogo":"Equipado · restam "+Clock(reading.Remaining);
         if(reading.Phase==PlasmaPhase.Paused) return "Fora do slot · restam "+Clock(reading.Remaining)+" (pausado)";
         switch(plasma.Source) {
             case PlasmaSource.NoTibia: return "Aguardando o Tibia";

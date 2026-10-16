@@ -136,9 +136,15 @@ estado fica salvo em %LOCALAPPDATA%\TibiaScarabEye\alerts.json).
   OBS: abra o OBS com o script" e nada é reconhecido; uma contagem que já
   estava correndo continua e o aviso toca na hora certa.
 - Quando o sprite aparece em dois quadros seguidos (cerca de 0,3 segundo, com
-  o OBS gravando uns 10 quadros por segundo), toca
-  o som de "equipado" e a contagem de 30:00 começa. Aos 1:30 restantes toca o
-  som de aviso, uma vez, para você trocar o item e poupá-lo.
+  o OBS gravando uns 10 quadros por segundo), toca o som de "equipado".
+- O tempo vem do próprio jogo: o Tibia escreve o tempo restante embaixo do item
+  ("30m", "11m" e, nos últimos 2 minutos, "1m28"). O programa lê esse número da
+  imagem (a fonte do Tibia é de pixels fixos) e toca o som de aviso, uma vez,
+  quando o jogo mostra 1m30 ou menos, para você trocar o item e poupá-lo. A linha
+  da janela mostra o texto lido ("Equipado · 1m28 no jogo"). Se o número não puder
+  ser lido, vale a contagem própria de 30 minutos. Os desenhos do 6, do 9 e do "s"
+  ("58s") ainda não foram capturados: um número com um deles não é lido, e o aviso
+  sai no primeiro segundo legível (1m30 usa só o 3 e o 0, que são lidos).
 - A contagem só corre com o item equipado. Tirou com mais de 1:30 sobrando: ela
   pausa e continua quando o sprite voltar. Tirou depois do aviso (ou venceu):
   o item está gasto, e o próximo sprite é um item novo (30:00). Se o palpite

@@ -15,7 +15,7 @@ internal enum PlasmaPhase { Idle, Equipped, Paused }
 internal sealed class PlasmaTimer {
     public static readonly TimeSpan Duration=TimeSpan.FromMinutes(30), WarnAt=TimeSpan.FromSeconds(90);
     TimeSpan left=Duration, anchor;
-    bool running, warned, used, blocked;
+    bool running, warned, used, blocked, synced;
 
     // O aviso dos 1:30 já saiu (ou foi dado junto com o do outro item, veja MarkWarned).
     public bool Warned { get { return warned; } }
@@ -43,8 +43,20 @@ internal sealed class PlasmaTimer {
         return result;
     }
 
+    // O tempo que o próprio jogo mostra embaixo do item. É a fonte de verdade: com segundos ("1m28") acerta a contagem e dá o aviso
+    // na hora em que o jogo chega a 1:30; só com minutos ("11m") serve para começar certo quando o programa abre com o item já gasto.
+    // Devolve o aviso quando o jogo está em 1:30 ou menos.
+    public PlasmaEvent ObserveGame(TimerReading reading,TimeSpan now) {
+        if(!reading.Valid || !running) return PlasmaEvent.None;
+        if(reading.Exact) { left=TimeSpan.FromSeconds(reading.Seconds); anchor=now; }
+        else if(!synced) { TimeSpan upper=TimeSpan.FromSeconds(reading.Seconds+59); if(left>upper) { left=upper; anchor=now; } }
+        synced=true;
+        if(!warned && left<=WarnAt) { warned=true; return PlasmaEvent.Warning; }
+        return PlasmaEvent.None;
+    }
+
     // Volta ao item novo e fechado: 30:00, sem aviso dado.
-    public void Reset() { left=Duration; running=false; warned=false; used=false; }
+    public void Reset() { left=Duration; running=false; warned=false; used=false; synced=false; }
 
     // O jogador diz que esse é um item novo: recomeça os 30:00 (se já estiver equipado, sem tocar o som de equipado).
     public void Restart(TimeSpan now) {

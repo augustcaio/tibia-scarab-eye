@@ -11,12 +11,13 @@ public class SpriteTemplateTests
     [Theory]
     [InlineData(PlasmaItem.Collar)]
     [InlineData(PlasmaItem.Ring)]
-    public void EmbeddedSprites_Load32x32WithTransparency(PlasmaItem item)
+    public void EmbeddedSprites_Load32PixelsWideWithTheTopRowsOnly(PlasmaItem item)
     {
         var template = Frames.Template(item);
 
-        Assert.Equal((32, 32), (template.Width, template.Height));
-        Assert.InRange(template.OpaquePixels, 64, 32 * 32 - 1); // o fundo transparente nao conta
+        // so as 22 linhas de cima contam: embaixo o jogo escreve o tempo restante
+        Assert.Equal((32, SpriteTemplate.SpriteRows), (template.Width, template.Height));
+        Assert.InRange(template.OpaquePixels, 64, 32 * SpriteTemplate.SpriteRows - 1); // o fundo transparente nao conta
     }
 
     [Theory]
@@ -82,6 +83,25 @@ public class SpriteTemplateTests
         var frame = Noisy(Frames.With(200, 150, (PlasmaItem.Ring, new Point(30, 30))), 10);
 
         Assert.True(Frames.Template(PlasmaItem.Ring).Find(frame, Whole));
+    }
+
+    [Fact]
+    public void TheTimerTextOverTheBottomOfTheItemDoesNotHideIt()
+    {
+        var frame = Frames.WithTimers(60, 50, (PlasmaItem.Collar, new Point(5, 3), "1m28"), (PlasmaItem.Ring, new Point(5, 3 + 0), null));
+        Assert.True(Frames.Template(PlasmaItem.Collar).FindIn(Frames.WithTimers(60, 50, (PlasmaItem.Collar, new Point(5, 3), "30m"))));
+        Assert.True(Frames.Template(PlasmaItem.Collar).FindIn(Frames.WithTimers(60, 50, (PlasmaItem.Collar, new Point(5, 3), "1m58"))));
+    }
+
+    [Fact]
+    public void Locate_GivesTheBestPositionInsideTheTolerance()
+    {
+        var frame = Frames.With(120, 80, (PlasmaItem.Ring, new Point(47, 21)));
+        Point at;
+
+        Assert.True(Frames.Template(PlasmaItem.Ring).Locate(frame, out at));
+        Assert.Equal(new Point(47, 21), at);
+        Assert.False(Frames.Template(PlasmaItem.Collar).Locate(frame, out at));
     }
 
     [Fact]

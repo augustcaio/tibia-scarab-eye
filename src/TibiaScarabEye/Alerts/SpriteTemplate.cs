@@ -8,9 +8,12 @@ namespace TibiaScarabEye.Alerts;
 
 // Um sprite (32x32, com fundo transparente) a procurar dentro das áreas recortadas. Só os pixels opacos contam, comparados com o
 // quadro cor a cor; o sprite vale como "à vista" quando a diferença média por canal fica dentro da tolerância. Tamanho 1:1.
+// Só as 22 linhas de cima entram na comparação: embaixo o Tibia escreve o tempo restante do item por cima do desenho.
 internal sealed class SpriteTemplate {
-    // Média de diferença por canal (0 a 255). Tolera a paleta reduzida do GIF da wiki sem confundir com os outros itens.
-    public const int DefaultTolerance=24;
+    // Média de diferença por canal (0 a 255). O desenho do jogo difere do GIF da wiki (brilho, cores): o colar chega a 27 e o anel a
+    // 13 em capturas reais, enquanto um item no lugar do outro dá cerca de 64.
+    public const int DefaultTolerance=40;
+    public const int SpriteRows=22;
     // A área recortada pode errar a posição do slot por alguns pixels; a busca olha um pouco além dela.
     const int Margin=2, MinOpaquePixels=64;
     struct Px { public int X, Y; public byte B, G, R; }
@@ -24,12 +27,12 @@ internal sealed class SpriteTemplate {
     public static SpriteTemplate FromBitmap(Bitmap bitmap,int tolerance=DefaultTolerance) {
         var frame=PixelBuffer.FromBitmap(bitmap);
         var list=new List<Px>();
-        for(int y=0;y<frame.Height;y++) for(int x=0;x<frame.Width;x++) {
+        for(int y=0;y<Math.Min(frame.Height,SpriteRows);y++) for(int x=0;x<frame.Width;x++) {
             int i=(y*frame.Width+x)*4;
             if(frame.Bgra[i+3]>=128) list.Add(new Px { X=x, Y=y, B=frame.Bgra[i], G=frame.Bgra[i+1], R=frame.Bgra[i+2] });
         }
         if(list.Count<MinOpaquePixels) throw new InvalidDataException("O sprite tem pixels opacos de menos para ser reconhecido.");
-        return new SpriteTemplate(list.ToArray(),frame.Width,frame.Height,tolerance);
+        return new SpriteTemplate(list.ToArray(),frame.Width,Math.Min(frame.Height,SpriteRows),tolerance);
     }
 
     // Lê um sprite embutido no executável (Assets\Sprites\*.gif).
@@ -48,6 +51,19 @@ internal sealed class SpriteTemplate {
         }
     }
 
+    // Onde o sprite está na imagem: a posição de menor diferença dentro da tolerância (o canto de cima do desenho de 32x32).
+    public bool Locate(PixelBuffer area,out Point at) {
+        at=Point.Empty;
+        int lastX=area.Width-Width, lastY=area.Height-Height, best=Tolerance*3*opaque.Length+1;
+        bool found=false;
+        for(int y=0;y<=lastY;y++) for(int x=0;x<=lastX;x++) {
+            int distance=Distance(area,x,y,best-1);
+            if(distance<best) { best=distance; at=new Point(x,y); found=true; }
+        }
+        return found;
+    }
+    // O sprite está nesta imagem (uma área recortada inteira)?
+    public bool FindIn(PixelBuffer area) { return Find(area,new Rectangle(0,0,area.Width,area.Height)); }
     // O sprite está em alguma das imagens (cada uma é uma área recortada inteira)?
     public bool Find(IEnumerable<PixelBuffer> areas) {
         foreach(var area in areas) if(Find(area,new Rectangle(0,0,area.Width,area.Height))) return true;

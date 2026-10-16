@@ -20,6 +20,8 @@ public class MainFormTests
     {
         public readonly SourceWindow Source = new SourceWindow();
         public readonly string PresetsPath = Path.Combine(Path.GetTempPath(), "tibiascarabeye-main-" + Guid.NewGuid().ToString("N") + ".json");
+        // Os alertas (e o registro ao lado) tambem num arquivo temporario: o teste nunca escreve no registro real do usuario.
+        public readonly string AlertsPath = Path.Combine(Path.GetTempPath(), "tibiascarabeye-main-alerts-" + Guid.NewGuid().ToString("N") + ".json");
         public string Character = "Teste";
         public bool TibiaOpen = true;
         public readonly MainForm Main;
@@ -28,7 +30,7 @@ public class MainFormTests
         {
             TibiaOpen = tibiaOpen;
             if (seed != null) { var store = PresetStore.Open(PresetsPath); seed(store); store.Save(); }
-            Main = new MainForm(PresetsPath, prefer => TibiaOpen ? new TibiaWindow { Handle = Source.Handle, Title = "Tibia - " + Character, Character = Character } : null);
+            Main = new MainForm(PresetsPath, prefer => TibiaOpen ? new TibiaWindow { Handle = Source.Handle, Title = "Tibia - " + Character, Character = Character } : null, AlertsPath);
             DesktopHarness.ShowOffscreen(Main);
         }
 
@@ -49,6 +51,7 @@ public class MainFormTests
             Main.Dispose();
             Source.Dispose();
             if (File.Exists(PresetsPath)) File.Delete(PresetsPath);
+            foreach (var extra in new[] { AlertsPath, Path.ChangeExtension(AlertsPath, ".log") }) if (File.Exists(extra)) File.Delete(extra);
         }
     }
 

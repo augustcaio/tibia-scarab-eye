@@ -12,6 +12,8 @@ internal struct PlasmaReading {
     public bool Enabled, Present;
     public PlasmaPhase Phase;
     public TimeSpan Remaining;
+    // O tempo como o jogo o mostra embaixo do item ("1m28"), ou null enquanto não foi lido.
+    public string GameText;
 }
 
 // Junta o que o OBS enxerga do jogo (o sprite do item nas áreas recortadas) com a contagem de cada item e toca os alertas.
@@ -24,7 +26,8 @@ internal sealed class PlasmaMonitor {
     public static readonly TimeSpan CombineWithin=TimeSpan.FromSeconds(10);
     sealed class Track {
         public PlasmaItem Item; public SpriteTemplate Sprite; public readonly PlasmaTimer Timer=new PlasmaTimer();
-        public bool Enabled, Present; public int Hits, Misses;
+        public bool Enabled, Present; public int Hits, Misses, Unread;
+        public string GameText;
     }
     readonly Func<TimeSpan> clock;
     readonly IAlertSound sound;
@@ -49,11 +52,11 @@ internal sealed class PlasmaMonitor {
         track.Enabled=enabled;
         if(!enabled) Forget(track);
     }
-    static void Forget(Track track) { track.Timer.Reset(); track.Present=false; track.Hits=track.Misses=0; }
+    static void Forget(Track track) { track.Timer.Reset(); track.Present=false; track.Hits=track.Misses=track.Unread=0; track.GameText=null; }
 
     public PlasmaReading Read(PlasmaItem item) {
         var track=tracks[item];
-        return new PlasmaReading { Enabled=track.Enabled, Present=track.Present, Phase=track.Timer.Phase, Remaining=track.Timer.Remaining(clock()) };
+        return new PlasmaReading { Enabled=track.Enabled, Present=track.Present, Phase=track.Timer.Phase, Remaining=track.Timer.Remaining(clock()), GameText=track.Present?track.GameText:null };
     }
     public void Restart(PlasmaItem item) { tracks[item].Timer.Restart(clock()); }
 
@@ -66,7 +69,7 @@ internal sealed class PlasmaMonitor {
         if(Source!=PlasmaSource.NoTibia) log("fonte: Tibia fora do ar, contagens pausadas");
         Source=PlasmaSource.NoTibia;
         TimeSpan now=clock();
-        foreach(var track in tracks.Values) { track.Timer.Pause(now); track.Present=false; track.Hits=track.Misses=0; }
+        foreach(var track in tracks.Values) { track.Timer.Pause(now); track.Present=false; track.Hits=track.Misses=track.Unread=0; track.GameText=null; }
         lastFrame=null;
     }
 
@@ -81,13 +84,39 @@ internal sealed class PlasmaMonitor {
         lastFrame=areas;
         foreach(var track in tracks.Values) {
             if(!track.Enabled) continue;
-            bool removed=Source==PlasmaSource.Reading && !sameFrame && Observe(track,track.Sprite.Find(areas));
+            // Em cada imagem nova: o sprite do item (as 22 linhas de cima) e o tempo que o jogo escreve embaixo dele.
+            bool fresh=Source==PlasmaSource.Reading && !sameFrame, removed=false;
+            var reading=default(TimerReading);
+            PixelBuffer seenIn=null;
+            if(fresh) {
+                bool found=false;
+                foreach(var area in areas) {
+                    Point at;
+                    if(!track.Sprite.Locate(area,out at)) continue;
+                    found=true; seenIn=area;
+                    var read=TimerReader.Read(area,at);
+                    if(read.Valid && (!reading.Valid || (read.Exact && !reading.Exact))) reading=read;
+                }
+                removed=Observe(track,found);
+            }
             var events=track.Timer.Update(track.Present,now);
+            if(fresh && track.Present) events|=Game(track,reading,seenIn,now);
             if((events&PlasmaEvent.Equipped)!=0) { log(PlasmaInfo.Name(track.Item)+": equipado (restam "+Clock(track.Timer.Remaining(now))+")"); sound.Play(track.Item,AlertKind.Equipped); }
             if((events&PlasmaEvent.Warning)!=0) { log(PlasmaInfo.Name(track.Item)+": aviso (restam "+Clock(track.Timer.Remaining(now))+")"); Warn(track,now); }
             if((events&PlasmaEvent.Expired)!=0) log(PlasmaInfo.Name(track.Item)+": venceu");
             if(removed) { log(PlasmaInfo.Name(track.Item)+": retirado ("+track.Timer.Phase+", restam "+Clock(track.Timer.Remaining(now))+")"); sound.Play(track.Item,AlertKind.Removed); }
         }
+    }
+    // O tempo lido do jogo guia a contagem; o texto é anotado no registro quando muda e, se o sprite está lá mas o texto não é
+    // legível por um tempo, o desenho da área vai para o registro (para ajustar a leitura depois).
+    PlasmaEvent Game(Track track,TimerReading reading,PixelBuffer seenIn,TimeSpan now) {
+        if(!reading.Valid) {
+            if(seenIn!=null && ++track.Unread%300==30) log(PlasmaInfo.Name(track.Item)+": texto do tempo ilegível; desenho da área:\n"+TimerReader.Describe(seenIn));
+            return PlasmaEvent.None;
+        }
+        track.Unread=0;
+        if(track.GameText!=reading.Text) { track.GameText=reading.Text; log(PlasmaInfo.Name(track.Item)+": tempo do jogo "+reading.Text); }
+        return track.Timer.ObserveGame(reading,now);
     }
     // Um único aviso quando o outro item está equipado e chega ao seu aviso em até CombineWithin: o áudio dos dois, e o outro não repete.
     void Warn(Track track,TimeSpan now) {

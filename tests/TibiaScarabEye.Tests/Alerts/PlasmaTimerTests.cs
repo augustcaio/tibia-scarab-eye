@@ -105,6 +105,45 @@ public class PlasmaTimerTests
         Assert.Equal(Min(30), timer.Remaining(Min(12)));
     }
 
+    private static TimerReading Game(string text) => TimerReader.Parse(text);
+
+    [Fact]
+    public void TheGamesOwnTimerGivesTheWarningWhateverOurClockSays()
+    {
+        var timer = new PlasmaTimer();
+        timer.Update(true, TimeSpan.Zero);
+        Assert.Equal(Min(30), timer.Remaining(TimeSpan.Zero));
+
+        // Nosso relogio diz 20 minutos, mas o jogo ja mostra 1m31: nada ainda; 1m30: aviso, uma vez so.
+        Assert.Equal(PlasmaEvent.None, timer.ObserveGame(Game("1m31"), Min(10)));
+        Assert.Equal(PlasmaEvent.Warning, timer.ObserveGame(Game("1m30"), Min(10) + TimeSpan.FromSeconds(1)));
+        Assert.Equal(PlasmaEvent.None, timer.ObserveGame(Game("1m29"), Min(10) + TimeSpan.FromSeconds(2)));
+        Assert.Equal(TimeSpan.FromSeconds(89), timer.Remaining(Min(10) + TimeSpan.FromSeconds(2)));
+        Assert.Equal(PlasmaEvent.None, timer.Update(true, Min(10) + TimeSpan.FromSeconds(3))); // nosso relogio nao repete o aviso
+    }
+
+    [Fact]
+    public void AMinuteLevelReadingStartsTheCountAtTheRightPlaceOnlyOnce()
+    {
+        var timer = new PlasmaTimer();
+        timer.Update(true, TimeSpan.Zero); // programa aberto com o item ja na reta final: 30:00 e palpite
+
+        timer.ObserveGame(Game("11m"), Min(1));
+        Assert.InRange(timer.Remaining(Min(1)).TotalSeconds, 11 * 60, 11 * 60 + 59);
+
+        timer.ObserveGame(Game("30m"), Min(2)); // uma leitura de minutos nao puxa a contagem para cima depois
+        Assert.InRange(timer.Remaining(Min(2)).TotalSeconds, 10 * 60, 11 * 60 + 59);
+    }
+
+    [Fact]
+    public void TheGameTimerIsIgnoredWhileTheItemIsNotRunning()
+    {
+        var timer = new PlasmaTimer();
+
+        Assert.Equal(PlasmaEvent.None, timer.ObserveGame(Game("1m10"), Min(1)));
+        Assert.Equal(PlasmaPhase.Idle, timer.Phase);
+    }
+
     [Fact]
     public void Pause_StopsTheCountdownLikeTakingTheItemOff()
     {
