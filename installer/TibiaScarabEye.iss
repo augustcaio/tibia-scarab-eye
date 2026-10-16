@@ -1,7 +1,7 @@
 ﻿; Instalador do Tibia Scarab Eye (Inno Setup 6). Gerado por installer\build.ps1, que publica o programa em
 ; artifacts\publish e chama o compilador com /DAppVersion=<versao>.
 #ifndef AppVersion
-  #define AppVersion "0.2.0"
+  #define AppVersion "0.3.0"
 #endif
 #define AppName "Tibia Scarab Eye"
 #define AppExe "TibiaScarabEye.exe"
