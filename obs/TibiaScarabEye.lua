@@ -267,13 +267,13 @@ end
 
 -- ---------------------------------------------------------------- sight
 -- Collar/Ring of Red Plasma alerts. The Tibia client blocks Windows screen capture (display affinity), so the desktop app cannot
--- read its pixels; OBS can, through the Game Capture hook the user already runs. Each ~0.5 s this script crops the same areas it
--- builds the overlays from out of the Game Capture texture (a GPU render into a tiny texture, nothing is copied from or injected
--- into the game) and writes their pixels to obs-sight.bin. The app does the matching, the countdown and the sounds.
--- Format: "TSEYE1\n", "<unix time> <session> <count>\n", then per area "<w> <h>\n" + w*h*4 BGRA bytes.
+-- read its pixels; OBS can, through the Game Capture hook the user already runs. About 10 times a second this script crops the
+-- same areas it builds the overlays from out of the Game Capture texture (a GPU render into a tiny texture, nothing is copied from
+-- or injected into the game) and writes their pixels to obs-sight.bin. The app does the matching, the countdown and the sounds.
+-- Format: "TSEYE1\n", "<unix time> <session> <count> <sequence>\n", then per area "<w> <h>\n" + w*h*4 BGRA bytes.
 local find_base -- defined below, in the tick section
-local SIGHT_MAX_SIDE, SIGHT_PERIOD_NS = 512, 500000000
-local sight = {gfx = nil, ffi = nil, last = 0, failures = 0, session = string.format("%x", os.time()), written = false}
+local SIGHT_MAX_SIDE, SIGHT_PERIOD_NS, SIGHT_POOL_MAX = 160, 90000000, 24
+local sight = {gfx = nil, ffi = nil, last = 0, failures = 0, seq = 0, session = string.format("%x", os.time()), written = false, pool = {}, pool_count = 0}
 
 local SIGHT_CDEF = [[
 typedef struct obs_source obs_source_t;
@@ -326,46 +326,73 @@ local function sight_init()
     return lib
 end
 
--- Renders the rectangle (left, top, w, h) of the source, in source pixels, into a w*h texture and returns its BGRA bytes.
-local function sight_grab(src, left, top, w, h)
+-- The render targets are reused between samples (one texture and one staging surface per area size). Must run with the graphics
+-- context entered.
+local function sight_drop_pool(g)
+    for _, slot in pairs(sight.pool) do
+        if slot.ss ~= nil then g.gs_stagesurface_destroy(slot.ss) end
+        if slot.tr ~= nil then g.gs_texrender_destroy(slot.tr) end
+    end
+    sight.pool, sight.pool_count = {}, 0
+end
+
+local function sight_release()
+    if sight.pool_count == 0 or not sight.gfx then return end
+    sight.gfx.obs_enter_graphics()
+    pcall(sight_drop_pool, sight.gfx)
+    sight.gfx.obs_leave_graphics()
+end
+
+-- Renders every rectangle {left, top, w, h} of the source (source pixels) in ONE graphics session, so the render thread is only
+-- waited for once per sample. Returns a list with the w*h*4 BGRA bytes of each rectangle (nil where it failed).
+local function sight_grab_all(src, rects)
     local ffi, g = sight.ffi, sight.gfx
     local bgra, zs = obs.GS_BGRA or 5, obs.GS_ZS_NONE or 0
     local clear, one, zero = obs.GS_CLEAR_COLOR or 1, obs.GS_BLEND_ONE or 1, obs.GS_BLEND_ZERO or 0
-    local texrender, stage, bytes
+    local results = {}
     g.obs_enter_graphics()
+    g.obs_source_inc_showing(src)
     local ok, err = pcall(function()
-        texrender = g.gs_texrender_create(bgra, zs)
-        stage = g.gs_stagesurface_create(w, h, bgra)
-        if texrender == nil or stage == nil then error("sem textura") end
-        g.gs_texrender_reset(texrender)
-        if not g.gs_texrender_begin(texrender, w, h) then error("gs_texrender_begin") end
-        g.gs_clear(clear, ffi.new("struct tse_vec4"), 0, 0)
-        g.gs_ortho(left, left + w, top, top + h, -100, 100)
-        g.gs_blend_state_push()
-        g.gs_blend_function(one, zero)
-        g.obs_source_inc_showing(src)
-        g.obs_source_video_render(src)
-        g.obs_source_dec_showing(src)
-        g.gs_blend_state_pop()
-        g.gs_texrender_end(texrender)
-        g.gs_stage_texture(stage, g.gs_texrender_get_texture(texrender))
-        local data, linesize = ffi.new("uint8_t*[1]"), ffi.new("uint32_t[1]")
-        if g.gs_stagesurface_map(stage, data, linesize) then
-            local copy = ffi.new("uint8_t[?]", w * h * 4)
-            for y = 0, h - 1 do ffi.copy(copy + y * w * 4, data[0] + y * linesize[0], w * 4) end
-            g.gs_stagesurface_unmap(stage)
-            bytes = ffi.string(copy, w * h * 4)
+        for i, r in ipairs(rects) do
+            local w, h = r.w, r.h
+            local key = w .. "x" .. h
+            local slot = sight.pool[key]
+            if not slot then
+                if sight.pool_count >= SIGHT_POOL_MAX then sight_drop_pool(g) end
+                slot = {tr = g.gs_texrender_create(bgra, zs), ss = g.gs_stagesurface_create(w, h, bgra)}
+                sight.pool[key], sight.pool_count = slot, sight.pool_count + 1
+                if slot.tr == nil or slot.ss == nil then error("sem textura") end
+            end
+            g.gs_texrender_reset(slot.tr)
+            if g.gs_texrender_begin(slot.tr, w, h) then
+                g.gs_clear(clear, ffi.new("struct tse_vec4"), 0, 0)
+                g.gs_ortho(r.left, r.left + w, r.top, r.top + h, -100, 100)
+                g.gs_blend_state_push()
+                g.gs_blend_function(one, zero)
+                g.obs_source_video_render(src)
+                g.gs_blend_state_pop()
+                g.gs_texrender_end(slot.tr)
+                g.gs_stage_texture(slot.ss, g.gs_texrender_get_texture(slot.tr))
+                local data, linesize = ffi.new("uint8_t*[1]"), ffi.new("uint32_t[1]")
+                if g.gs_stagesurface_map(slot.ss, data, linesize) then
+                    local copy = ffi.new("uint8_t[?]", w * h * 4)
+                    for y = 0, h - 1 do ffi.copy(copy + y * w * 4, data[0] + y * linesize[0], w * 4) end
+                    g.gs_stagesurface_unmap(slot.ss)
+                    results[i] = ffi.string(copy, w * h * 4)
+                end
+            end
         end
     end)
-    if stage ~= nil then g.gs_stagesurface_destroy(stage) end
-    if texrender ~= nil then g.gs_texrender_destroy(texrender) end
+    g.obs_source_dec_showing(src)
+    if not ok then pcall(sight_drop_pool, g) end
     g.obs_leave_graphics()
     if not ok then error(err, 0) end
-    return bytes
+    return results
 end
 
 local function sight_write(areas)
-    local parts = {"TSEYE1\n", string.format("%d %s %d\n", os.time(), sight.session, #areas)}
+    sight.seq = sight.seq + 1
+    local parts = {"TSEYE1\n", string.format("%d %s %d %d\n", os.time(), sight.session, #areas, sight.seq)}
     for _, a in ipairs(areas) do
         parts[#parts + 1] = string.format("%d %d\n", a.w, a.h)
         parts[#parts + 1] = a.bytes
@@ -383,6 +410,7 @@ end
 
 local function sight_clear()
     if sight.written then os.remove(sight_path()); sight.written = false end
+    sight_release()
 end
 
 local function sight_step()
@@ -400,17 +428,19 @@ local function sight_step()
     local ok, err = pcall(function()
         local sw, sh = tonumber(g.obs_source_get_width(src)), tonumber(g.obs_source_get_height(src))
         if sw < 1 or sh < 1 then sight_clear(); return end
-        local areas = {}
+        local rects = {}
         for _, r in ipairs(packet.regions) do
             local left = clamp(round(r.cropx * sw), 0, sw - 1)
             local top = clamp(round(r.cropy * sh), 0, sh - 1)
             local right = clamp(round((r.cropx + r.cropw) * sw), left + 1, sw)
             local bottom = clamp(round((r.cropy + r.croph) * sh), top + 1, sh)
             local w, h = right - left, bottom - top
-            if w <= SIGHT_MAX_SIDE and h <= SIGHT_MAX_SIDE then
-                local bytes = sight_grab(src, left, top, w, h)
-                if bytes then areas[#areas + 1] = {w = w, h = h, bytes = bytes} end
-            end
+            if w <= SIGHT_MAX_SIDE and h <= SIGHT_MAX_SIDE then rects[#rects + 1] = {left = left, top = top, w = w, h = h} end
+        end
+        local grabbed = #rects > 0 and sight_grab_all(src, rects) or {}
+        local areas = {}
+        for i, rect in ipairs(rects) do
+            if grabbed[i] then areas[#areas + 1] = {w = rect.w, h = rect.h, bytes = grabbed[i]} end
         end
         sight_write(areas)
     end)

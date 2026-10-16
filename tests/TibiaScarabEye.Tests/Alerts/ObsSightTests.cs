@@ -17,12 +17,14 @@ public class ObsSightTests : IDisposable
     public void Dispose() { Directory.Delete(folder, true); }
 
     // Monta o arquivo como o script Lua do OBS o grava.
-    private static byte[] Build(long heartbeat, params (int w, int h, byte fill)[] areas)
+    private static byte[] Build(long heartbeat, params (int w, int h, byte fill)[] areas) => BuildSeq(heartbeat, 1, areas);
+
+    private static byte[] BuildSeq(long heartbeat, long sequence, params (int w, int h, byte fill)[] areas)
     {
         using var stream = new MemoryStream();
         void Text(string text) { var bytes = Encoding.ASCII.GetBytes(text); stream.Write(bytes, 0, bytes.Length); }
         Text("TSEYE1\n");
-        Text($"{heartbeat} abc123 {areas.Length}\n");
+        Text($"{heartbeat} abc123 {areas.Length} {sequence}\n");
         foreach (var (w, h, fill) in areas)
         {
             Text($"{w} {h}\n");
@@ -40,6 +42,7 @@ public class ObsSightTests : IDisposable
 
         Assert.Equal(1792173245, sight.Heartbeat);
         Assert.Equal("abc123", sight.Session);
+        Assert.Equal(1, sight.Sequence);
         Assert.Equal(new[] { (40, 30), (34, 34) }, sight.Areas.Select(a => (a.Width, a.Height)));
         Assert.All(sight.Areas[0].Bgra.Take(40 * 30 * 4), b => Assert.Equal(7, b));
         Assert.Equal(9, sight.Areas[1].Bgra[34 * 34 * 4 - 1]);
@@ -52,12 +55,13 @@ public class ObsSightTests : IDisposable
     }
 
     [Theory]
-    [InlineData("OUTRO\n1 a 0\n")]
-    [InlineData("TSEYE1\nnao-e-numero a 0\n")]
-    [InlineData("TSEYE1\n1 a 31\n")]
-    [InlineData("TSEYE1\n1 a 1\n513 10\n")]
-    [InlineData("TSEYE1\n1 a 1\n0 10\n")]
-    [InlineData("TSEYE1\n1 a 1\n10 10\nfaltam os bytes")]
+    [InlineData("OUTRO\n1 a 0 1\n")]
+    [InlineData("TSEYE1\nnao-e-numero a 0 1\n")]
+    [InlineData("TSEYE1\n1 a 0\n")] // sem a sequencia (formato antigo)
+    [InlineData("TSEYE1\n1 a 31 1\n")]
+    [InlineData("TSEYE1\n1 a 1 1\n513 10\n")]
+    [InlineData("TSEYE1\n1 a 1 1\n0 10\n")]
+    [InlineData("TSEYE1\n1 a 1 1\n10 10\nfaltam os bytes")]
     public void Parse_RejectsMalformedFiles(string content)
     {
         Assert.Throws<InvalidDataException>(() => ObsSight.Parse(Encoding.ASCII.GetBytes(content)));
@@ -94,7 +98,7 @@ public class ObsSightTests : IDisposable
         var reader = new ObsSightReader(path, () => now);
         Assert.Single(reader.Read());
 
-        File.WriteAllBytes(path, Build(1001, (34, 34, 5), (40, 40, 6)));
+        File.WriteAllBytes(path, BuildSeq(1001, 2, (34, 34, 5), (40, 40, 6)));
         now = 1001;
 
         Assert.Equal(2, reader.Read().Count);
@@ -130,6 +134,22 @@ public class ObsSightTests : IDisposable
     }
 
     [Fact]
+    public void Reader_GivesTheSameListForTheSameFrameAndANewOneForANewFrame()
+    {
+        string path = Path.Combine(folder, "obs-sight.bin");
+        File.WriteAllBytes(path, BuildSeq(1000, 7, (34, 34, 5)));
+        var reader = new ObsSightReader(path, () => 1000);
+
+        var first = reader.Read();
+        var again = reader.Read(); // o mesmo quadro lido de novo: nao e uma observacao nova
+        File.WriteAllBytes(path, BuildSeq(1000, 8, (34, 34, 5)));
+        var next = reader.Read();
+
+        Assert.Same(first, again);
+        Assert.NotSame(first, next);
+    }
+
+    [Fact]
     public void Reader_WithoutAnyFileHasNoImages()
     {
         Assert.Null(new ObsSightReader(Path.Combine(folder, "nao-existe.bin"), () => 1).Read());
@@ -141,7 +161,7 @@ public class ObsSightTests : IDisposable
         // O caminho todo do lado do programa: arquivo do OBS -> imagens das areas -> reconhecimento do sprite.
         var frame = Frames.With(40, 40, (PlasmaItem.Collar, new System.Drawing.Point(4, 4)));
         var bytes = Build(1000, (40, 40, 0)).ToList();
-        int header = Encoding.ASCII.GetBytes("TSEYE1\n1000 abc123 1\n40 40\n").Length;
+        int header = Encoding.ASCII.GetBytes("TSEYE1\n1000 abc123 1 1\n40 40\n").Length;
         bytes.RemoveRange(header, 40 * 40 * 4);
         bytes.InsertRange(header, frame.Bgra.Take(40 * 40 * 4));
         string path = Path.Combine(folder, "obs-sight.bin");

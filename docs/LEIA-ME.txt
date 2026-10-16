@@ -135,7 +135,8 @@ estado fica salvo em %LOCALAPPDATA%\TibiaScarabEye\alerts.json).
 - Sem o OBS aberto (ou sem a sincronização), a linha mostra "Sem imagem do
   OBS: abra o OBS com o script" e nada é reconhecido; uma contagem que já
   estava correndo continua e o aviso toca na hora certa.
-- Quando o sprite aparece em duas leituras seguidas (cerca de 1 segundo), toca
+- Quando o sprite aparece em dois quadros seguidos (cerca de 0,3 segundo, com
+  o OBS gravando uns 10 quadros por segundo), toca
   o som de "equipado" e a contagem de 30:00 começa. Aos 1:30 restantes toca o
   som de aviso, uma vez, para você trocar o item e poupá-lo.
 - A contagem só corre com o item equipado. Tirou com mais de 1:30 sobrando: ela

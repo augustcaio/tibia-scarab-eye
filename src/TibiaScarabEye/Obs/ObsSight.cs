@@ -12,7 +12,7 @@ namespace TibiaScarabEye.Obs;
 //
 // Formato (binário):
 //   TSEYE1\n
-//   <heartbeat em segundos Unix> <sessão> <quantidade de áreas>\n
+//   <heartbeat em segundos Unix> <sessão> <quantidade de áreas> <sequência>\n   (a sequência cresce a cada quadro gravado)
 //   por área: <largura> <altura>\n seguido de largura*altura*4 bytes (BGRA, linha a linha, sem folga)
 internal sealed class ObsSight {
     public const string Magic="TSEYE1";
@@ -20,6 +20,7 @@ internal sealed class ObsSight {
     public static readonly string DefaultPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"TibiaScarabEye","obs-sight.bin");
     public long Heartbeat;
     public string Session="";
+    public long Sequence;
     public readonly List<PixelBuffer> Areas=new List<PixelBuffer>();
 
     public static ObsSight Parse(byte[] data) {
@@ -27,8 +28,9 @@ internal sealed class ObsSight {
         if(ReadLine(data,ref at)!=Magic) throw new InvalidDataException("Arquivo de imagens do OBS desconhecido.");
         string[] head=ReadLine(data,ref at).Split(' ');
         long heartbeat; int count;
-        if(head.Length!=3 || !long.TryParse(head[0],out heartbeat) || !int.TryParse(head[2],out count) || count<0 || count>MaxAreas) throw new InvalidDataException("Cabeçalho inválido.");
-        var sight=new ObsSight { Heartbeat=heartbeat, Session=head[1] };
+        long sequence;
+        if(head.Length!=4 || !long.TryParse(head[0],out heartbeat) || !int.TryParse(head[2],out count) || !long.TryParse(head[3],out sequence) || count<0 || count>MaxAreas) throw new InvalidDataException("Cabeçalho inválido.");
+        var sight=new ObsSight { Heartbeat=heartbeat, Session=head[1], Sequence=sequence };
         for(int i=0;i<count;i++) {
             string[] size=ReadLine(data,ref at).Split(' ');
             int width, height;
@@ -50,7 +52,7 @@ internal sealed class ObsSight {
     }
 }
 
-// Lê o arquivo do OBS a cada pedido. O script troca o arquivo por inteiro; se ele estiver sumido por um instante, vale a última
+// Lê o arquivo do OBS a cada pedido (o script grava cerca de 10 quadros por segundo). O script troca o arquivo por inteiro; se ele estiver sumido por um instante, vale a última
 // leitura boa por alguns segundos. Devolve null quando não há imagens recentes (OBS fechado, script parado ou sem Captura de jogo).
 internal sealed class ObsSightReader {
     public const int MaxAgeSeconds=4;
@@ -74,7 +76,9 @@ internal sealed class ObsSightReader {
                     while(read<bytes.Length) { int n=stream.Read(bytes,read,bytes.Length-read); if(n<=0) break; read+=n; }
                     if(read<bytes.Length) throw new IOException("Leitura incompleta.");
                 }
-                last=ObsSight.Parse(bytes);
+                var parsed=ObsSight.Parse(bytes);
+                // O mesmo quadro lido de novo mantém a mesma lista: quem lê sabe que não é uma observação nova.
+                if(last==null || last.Session!=parsed.Session || last.Sequence!=parsed.Sequence) last=parsed; else last.Heartbeat=parsed.Heartbeat;
             }
         } catch(Exception ex) when(ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException) { }
         if(last==null) return null;

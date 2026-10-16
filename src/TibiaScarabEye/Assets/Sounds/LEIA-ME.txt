@@ -11,5 +11,8 @@ coloque um arquivo com o mesmo nome em %LOCALAPPDATA%\TibiaScarabEye\sounds, que
   ring-off.wav         o anel saiu do slot (trocado ou vencido)
   plasmas-warning.wav  os dois itens chegam ao aviso com até 10 s de diferença (toca no lugar dos dois avisos)
 
+Comece cada som logo no primeiro instante: silêncio no início do arquivo soma ao atraso do alerta (os sons que acompanham o
+programa foram cortados para começar a soar em até 20 ms).
+
 Formato: WAV PCM de 16 bits (o player do Windows não toca WAV de ponto flutuante de 32 bits). Sem o arquivo,
 o programa toca um som padrão do Windows no lugar.

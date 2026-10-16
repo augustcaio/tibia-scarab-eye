@@ -57,6 +57,19 @@ public class PlasmaMonitorTests
     }
 
     [Fact]
+    public void TheSameFrameReadTwiceIsOneObservationOnly()
+    {
+        var rig = new Rig();
+        var frame = new[] { rig.WithRing };
+
+        for (int i = 0; i < 10; i++) rig.Monitor.Tick(frame); // o programa le o arquivo mais vezes do que o OBS grava
+        Assert.Empty(rig.Sound.Played);
+
+        rig.Monitor.Tick(new[] { rig.WithRing }); // um segundo quadro de verdade
+        Assert.Equal(new[] { (PlasmaItem.Ring, AlertKind.Equipped) }, rig.Sound.Played);
+    }
+
+    [Fact]
     public void ASingleBadFrameDoesNotEquipOrUnequip()
     {
         var rig = new Rig();

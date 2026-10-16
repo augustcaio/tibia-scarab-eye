@@ -51,7 +51,8 @@ internal sealed class MainForm : FramelessForm {
         this.locator=locator; store=PresetStore.Open(presetsPath);
         this.alertsPath=alertsPath??AlertSettings.DefaultPath; alertSettings=AlertSettings.Load(this.alertsPath); this.sight=sight??new ObsSightReader().Read;
         var watch=Stopwatch.StartNew();
-        plasma=new PlasmaMonitor(sound??new FileAlertSound(),clock??(Func<TimeSpan>)delegate { return watch.Elapsed; },delegate(PlasmaItem item) { return SpriteTemplate.FromResource(PlasmaInfo.SpriteResource(item)); });
+        if(sound==null) { var files=new FileAlertSound(); files.Preload(); sound=files; }
+        plasma=new PlasmaMonitor(sound,clock??(Func<TimeSpan>)delegate { return watch.Elapsed; },delegate(PlasmaItem item) { return SpriteTemplate.FromResource(PlasmaInfo.SpriteResource(item)); });
         Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
         StartPosition=FormStartPosition.CenterScreen;
 
@@ -107,8 +108,9 @@ internal sealed class MainForm : FramelessForm {
         exportOneItem=Item("Exportar este preset…",delegate { Export(false); }); exportAllItem=Item("Exportar todos os presets…",delegate { Export(true); }); importItem=Item("Importar…",delegate { Import(); });
         menu.Items.AddRange(new ToolStripItem[]{duplicateItem,renameItem,deleteItem,new ToolStripSeparator(),exportOneItem,exportAllItem,importItem});
         menu.Renderer=new ToolStripProfessionalRenderer(new DarkMenuColors()) { RoundedEdges=false }; menu.ForeColor=Theme.Ink; menu.BackColor=Color.FromArgb(39,39,37);
-        // 500 ms: o alerta de equipado sai cerca de 1 s depois de o sprite aparecer (duas leituras seguidas).
-        alertTimer.Interval=500; alertTimer.Tick+=delegate { TickAlerts(); }; alertTimer.Start();
+        // 100 ms, no ritmo do script do OBS (cerca de 10 quadros por segundo): o alerta de equipado sai uns 0,3 s depois de o sprite
+        // aparecer (dois quadros seguidos).
+        alertTimer.Interval=100; alertTimer.Tick+=delegate { TickAlerts(); }; alertTimer.Start();
 
         presets.SelectedIndexChanged+=delegate { var item=presets.SelectedItem as PresetItem; if(!binding && item!=null && item.Preset!=active) SwitchTo(item.Preset); };
         newPreset.Click+=delegate { NewPreset(); };

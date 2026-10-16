@@ -30,6 +30,8 @@ internal sealed class PlasmaMonitor {
     readonly IAlertSound sound;
     readonly Dictionary<PlasmaItem,Track> tracks=new Dictionary<PlasmaItem,Track>();
     public PlasmaSource Source { get; private set; }
+    // A última lista de imagens observada: a mesma lista de novo é o mesmo quadro e não conta como outra leitura.
+    IReadOnlyList<PixelBuffer> lastFrame;
 
     public PlasmaMonitor(IAlertSound sound,Func<TimeSpan> clock,Func<PlasmaItem,SpriteTemplate> sprites) {
         this.sound=sound; this.clock=clock; Source=PlasmaSource.NoTibia;
@@ -62,6 +64,7 @@ internal sealed class PlasmaMonitor {
         Source=PlasmaSource.NoTibia;
         TimeSpan now=clock();
         foreach(var track in tracks.Values) { track.Timer.Pause(now); track.Present=false; track.Hits=track.Misses=0; }
+        lastFrame=null;
     }
 
     // 'areas' são as imagens das áreas recortadas do preset ativo, como o OBS as enxerga; null quando o OBS não mandou imagens
@@ -69,9 +72,11 @@ internal sealed class PlasmaMonitor {
     public void Tick(IReadOnlyList<PixelBuffer> areas) {
         TimeSpan now=clock();
         Source=areas==null?PlasmaSource.NoObs:areas.Count==0?PlasmaSource.NoAreas:PlasmaSource.Reading;
+        bool sameFrame=areas!=null && ReferenceEquals(areas,lastFrame);
+        lastFrame=areas;
         foreach(var track in tracks.Values) {
             if(!track.Enabled) continue;
-            bool removed=Source==PlasmaSource.Reading && Observe(track,track.Sprite.Find(areas));
+            bool removed=Source==PlasmaSource.Reading && !sameFrame && Observe(track,track.Sprite.Find(areas));
             var events=track.Timer.Update(track.Present,now);
             if((events&PlasmaEvent.Equipped)!=0) sound.Play(track.Item,AlertKind.Equipped);
             if((events&PlasmaEvent.Warning)!=0) Warn(track,now);

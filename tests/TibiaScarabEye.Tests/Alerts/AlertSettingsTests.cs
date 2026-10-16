@@ -81,6 +81,26 @@ public class FileAlertSoundTests : IDisposable
         Assert.Null(sound.Find(PlasmaItem.Collar, AlertKind.Equipped));
     }
 
+    // Cada alerta comeca a soar logo: sem silencio no inicio do arquivo (o atraso ate ouvir soma ao da deteccao).
+    [Theory]
+    [InlineData("collar-on.wav")]
+    [InlineData("collar-warning.wav")]
+    [InlineData("collar-off.wav")]
+    [InlineData("ring-on.wav")]
+    [InlineData("ring-warning.wav")]
+    [InlineData("ring-off.wav")]
+    [InlineData("plasmas-warning.wav")]
+    public void TheShippedSoundsStartAudibleAlmostAtOnce(string name)
+    {
+        var bytes = File.ReadAllBytes(new FileAlertSound(FileAlertSound.AppFolder).Find(name));
+        int rate = (int)BitConverter.ToUInt32(bytes, 24), samples = (bytes.Length - 44) / 2, peak = 0;
+        for (int i = 0; i < samples; i++) peak = Math.Max(peak, Math.Abs((int)BitConverter.ToInt16(bytes, 44 + i * 2)));
+        int first = 0;
+        while (first < samples && Math.Abs((int)BitConverter.ToInt16(bytes, 44 + first * 2)) < peak * 0.05) first++;
+
+        Assert.True(first * 1000.0 / rate <= 60, $"{name}: {first * 1000.0 / rate:F0} ms de silencio no inicio");
+    }
+
     // Os sons que acompanham o programa: todos presentes e em WAV PCM (o SoundPlayer nao toca WAV de ponto flutuante).
     [Theory]
     [InlineData("collar-on.wav")]

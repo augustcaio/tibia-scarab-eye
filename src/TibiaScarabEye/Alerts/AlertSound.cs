@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Media;
 
@@ -21,6 +22,8 @@ internal sealed class FileAlertSound : IAlertSound {
     public static readonly string AppFolder=Path.Combine(AppContext.BaseDirectory,"sounds");
     public const string CombinedFile="plasmas-warning.wav";
     readonly string[] folders;
+    // Um player por arquivo, já carregado na memória: tocar não espera ler o disco. Se o arquivo mudar, recarrega.
+    readonly Dictionary<string,KeyValuePair<DateTime,SoundPlayer>> players=new Dictionary<string,KeyValuePair<DateTime,SoundPlayer>>();
     SoundPlayer current;
 
     public FileAlertSound() : this(UserFolder,AppFolder) { }
@@ -41,16 +44,38 @@ internal sealed class FileAlertSound : IAlertSound {
     }
     public void PlayCombinedWarning() { Play(Find(CombinedFile),SystemSounds.Exclamation); }
 
-    void Play(string path,SystemSound fallback) {
+    // Carrega todos os sons já na abertura do programa, para o primeiro alerta também sair sem atraso.
+    public void Preload() {
+        foreach(var item in PlasmaInfo.All) foreach(AlertKind kind in Enum.GetValues(typeof(AlertKind))) Prepare(Find(item,kind));
+        Prepare(Find(CombinedFile));
+    }
+    SoundPlayer Prepare(string path) {
+        if(path==null) return null;
         try {
-            if(path!=null) {
-                // Parar o anterior (se ainda tocava) é melhor que sobrepor dois alertas.
-                if(current!=null) current.Dispose();
-                current=new SoundPlayer(path);
-                current.Play();
-                return;
+            DateTime stamp=File.GetLastWriteTimeUtc(path);
+            KeyValuePair<DateTime,SoundPlayer> entry;
+            if(players.TryGetValue(path,out entry)) {
+                if(entry.Key==stamp) return entry.Value;
+                entry.Value.Dispose();
             }
-        } catch(Exception ex) when(ex is IOException || ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is TimeoutException) { }
+            var player=new SoundPlayer(path);
+            player.Load();
+            players[path]=new KeyValuePair<DateTime,SoundPlayer>(stamp,player);
+            return player;
+        } catch(Exception ex) when(ex is IOException || ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is TimeoutException) { players.Remove(path); return null; }
+    }
+
+    void Play(string path,SystemSound fallback) {
+        var player=Prepare(path);
+        if(player!=null) {
+            try {
+                // Parar o anterior (se ainda tocava) é melhor que sobrepor dois alertas.
+                if(current!=null && current!=player) current.Stop();
+                current=player;
+                player.Play();
+                return;
+            } catch(Exception ex) when(ex is IOException || ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is TimeoutException) { }
+        }
         fallback.Play();
     }
 }
