@@ -55,8 +55,9 @@ overlays sobre o mapa, enquanto o cliente continua inalterado.*
   salvos pelas versões antigas.
 - **Alertas sonoros de plasma.** O Collar of Red Plasma e o Ring of Red Plasma
   duram 30 minutos equipados. Na janela principal cada item tem o seu sprite e
-  um interruptor ON/OFF. O programa reconhece o sprite dentro das áreas que
-  você recortou (cubra o slot do colar e o do anel no editor), toca um alerta
+  um interruptor ON/OFF. O script do OBS recorta as áreas do preset da Captura
+  de jogo (o Windows não deixa o programa ler a janela do Tibia) e o programa
+  reconhece o sprite ali (cubra o slot do colar e o do anel no editor); toca um alerta
   quando o item é equipado e outro quando faltam 1 minuto e 30 segundos, para
   você trocar e poupar o item. A contagem só corre com o item equipado: se você
   o tira com mais de 1:30 sobrando ela pausa e continua quando ele volta; se o
@@ -162,8 +163,8 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 | `src/TibiaScarabEye/` | Aplicativo (WinForms, .NET 8, x64) |
 | `src/TibiaScarabEye/Interop/` | P/Invoke e DWM. `Native.ThumbnailBounds` é a origem correta das coordenadas da miniatura; `TibiaLocator` acha o cliente do Tibia |
 | `src/TibiaScarabEye/Layouts/` | `RegionSpec`, `Preset` e `PresetStore` (presets por personagem, exportar e importar); `Layout` é o formato antigo, que ainda pode ser importado |
-| `src/TibiaScarabEye/Obs/` | `ObsBridge` publica o layout para o OBS a cada 100 ms |
-| `src/TibiaScarabEye/Alerts/` | Alertas de plasma: `PlasmaTimer` (contagem), `SpriteTemplate` (reconhece o sprite), `WindowCapture` (lê a janela do jogo), `PlasmaMonitor` e `FileAlertSound` |
+| `src/TibiaScarabEye/Obs/` | `ObsBridge` publica o layout para o OBS a cada 100 ms; `ObsSight` lê as imagens das áreas que o script do OBS grava (`obs-sight.bin`) |
+| `src/TibiaScarabEye/Alerts/` | Alertas de plasma: `PlasmaTimer` (contagem), `SpriteTemplate` (reconhece o sprite), `PlasmaMonitor` e `FileAlertSound` |
 | `src/TibiaScarabEye/Assets/` | Ícone, sprites dos itens (`Sprites/`, embutidos no executável) e `Sounds/` com o guia dos WAV dos alertas |
 | `src/TibiaScarabEye/UI/` | Janela principal, editor de áreas, overlays e tema |
 | `tests/TibiaScarabEye.Tests/` | Testes xUnit (unitários e de desktop) |
@@ -192,13 +193,16 @@ em [`docs/LEIA-ME.txt`](docs/LEIA-ME.txt).
 - Jogo em tela cheia exclusiva não foi testado. O programa depende das
   miniaturas do DWM, então o recomendado é o Tibia em janela ou maximizado.
 - Com monitores de escalas diferentes, o alinhamento não foi verificado.
-- O reconhecimento do sprite lê a imagem da janela do jogo (PrintWindow), na
-  escala 1:1 e com o cliente em janela ou maximizado; com o Tibia em tela
-  cheia exclusiva ou com a interface escalada ele pode não enxergar o item. O
-  sprite precisa estar dentro de alguma área do preset ativo: um colar dentro
-  de uma área que cubra a mochila também conta como equipado, então cubra só
-  os slots. O reconhecimento com o Tibia real ainda não foi exercitado nesta
-  base.
+- Os alertas de plasma dependem do OBS: o cliente do Tibia bloqueia qualquer
+  captura de tela feita de fora (display affinity), então só o OBS, pela
+  Captura de jogo, enxerga a imagem. Com o OBS fechado, ou sem o script ou a
+  sincronização ligados, a linha mostra "Sem imagem do OBS" e nenhum alerta
+  toca (uma contagem já iniciada continua). O reconhecimento é em escala 1:1
+  (interface do Tibia sem escala). O sprite precisa estar dentro de alguma
+  área do preset ativo: um colar dentro de uma área que cubra a mochila também
+  conta como equipado, então cubra só os slots. O recorte das áreas no OBS usa
+  chamadas gráficas do OBS pela FFI do Lua e foi validado só com uma simulação
+  do OBS; com o OBS e o Tibia reais ainda não foi exercitado nesta base.
 - O script do OBS foi validado no OBS 32.2.2 com fonte de imagem. Com o
   Tibia real ainda não foi exercitado nesta base.
 

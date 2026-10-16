@@ -48,6 +48,11 @@ internal sealed class SpriteTemplate {
         }
     }
 
+    // O sprite está em alguma das imagens (cada uma é uma área recortada inteira)?
+    public bool Find(IEnumerable<PixelBuffer> areas) {
+        foreach(var area in areas) if(Find(area,new Rectangle(0,0,area.Width,area.Height))) return true;
+        return false;
+    }
     // O sprite está em alguma das áreas?
     public bool Find(PixelBuffer frame,IEnumerable<Rectangle> areas) {
         foreach(var area in areas) if(Find(frame,area)) return true;

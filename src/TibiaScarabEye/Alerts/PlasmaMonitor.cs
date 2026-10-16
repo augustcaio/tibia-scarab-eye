@@ -5,7 +5,7 @@ using System.Drawing;
 namespace TibiaScarabEye.Alerts;
 
 // Por que o monitor está (ou não) enxergando os itens, para a janela explicar ao jogador.
-internal enum PlasmaSource { NoTibia, NoAreas, NoCapture, Reading }
+internal enum PlasmaSource { NoTibia, NoObs, NoAreas, Reading }
 
 // O que a janela mostra de um item.
 internal struct PlasmaReading {
@@ -14,10 +14,10 @@ internal struct PlasmaReading {
     public TimeSpan Remaining;
 }
 
-// Junta o que o jogo mostra (o sprite do item nas áreas recortadas) com a contagem de cada item e toca os alertas. Cada chamada de
-// Tick recebe um quadro da janela do jogo e as áreas do preset ativo. O sprite precisa aparecer em leituras seguidas para valer
+// Junta o que o OBS enxerga do jogo (o sprite do item nas áreas recortadas) com a contagem de cada item e toca os alertas.
+// Cada chamada de Tick recebe as imagens das áreas do preset ativo. O sprite precisa aparecer em leituras seguidas para valer
 // como equipado (e sumir em leituras seguidas para valer como tirado), assim um quadro ruim não dispara nem encerra nada.
-// Sem imagem (jogo minimizado, por exemplo) o estado fica como estava: o item continua contando, e o aviso sai na hora certa.
+// Sem imagem (OBS fechado ou jogo minimizado, por exemplo) o estado fica como estava: o item continua contando, e o aviso sai na hora certa.
 internal sealed class PlasmaMonitor {
     public const int HitsToEquip=2, MissesToRemove=3;
     // Dois itens que avisam com até 10 s de diferença recebem o áudio dos dois em vez de dois avisos seguidos.
@@ -64,13 +64,14 @@ internal sealed class PlasmaMonitor {
         foreach(var track in tracks.Values) { track.Timer.Pause(now); track.Present=false; track.Hits=track.Misses=0; }
     }
 
-    // 'frame' é null quando não houve imagem do jogo. 'areas' são os recortes do preset ativo, nas coordenadas do quadro.
-    public void Tick(PixelBuffer frame,IReadOnlyList<Rectangle> areas) {
+    // 'areas' são as imagens das áreas recortadas do preset ativo, como o OBS as enxerga; null quando o OBS não mandou imagens
+    // recentes (aí o estado fica como estava e as contagens seguem).
+    public void Tick(IReadOnlyList<PixelBuffer> areas) {
         TimeSpan now=clock();
-        Source=areas.Count==0?PlasmaSource.NoAreas:frame==null?PlasmaSource.NoCapture:PlasmaSource.Reading;
+        Source=areas==null?PlasmaSource.NoObs:areas.Count==0?PlasmaSource.NoAreas:PlasmaSource.Reading;
         foreach(var track in tracks.Values) {
             if(!track.Enabled) continue;
-            bool removed=Source==PlasmaSource.Reading && Observe(track,track.Sprite.Find(frame,areas));
+            bool removed=Source==PlasmaSource.Reading && Observe(track,track.Sprite.Find(areas));
             var events=track.Timer.Update(track.Present,now);
             if((events&PlasmaEvent.Equipped)!=0) sound.Play(track.Item,AlertKind.Equipped);
             if((events&PlasmaEvent.Warning)!=0) Warn(track,now);

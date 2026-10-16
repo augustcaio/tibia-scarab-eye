@@ -7,7 +7,7 @@ local obs = obslua
 
 local PREFIX = "Tibia Scarab Eye "
 local PALETTE = {light = 0xff7e8585, middle = 0xff4a4f4f, dark = 0xff151616, black = 0xff000000, guide = 0xffffff00}
-local cfg = {source = "", path = "", dx = 0, dy = 0, guides = false, manual = true}
+local cfg = {source = "", path = "", dx = 0, dy = 0, guides = false, manual = true, detect = true}
 local overrides, overrides_dirty, overrides_saved = {}, false, 0 -- "scene/region id" -> {x, y, sx, sy}
 local add_crop_item, add_opacity -- defined below
 local colors = {}
@@ -265,8 +265,170 @@ local function build(scene, base_item, base, p, T, guides, scene_name)
     return record
 end
 
+-- ---------------------------------------------------------------- sight
+-- Collar/Ring of Red Plasma alerts. The Tibia client blocks Windows screen capture (display affinity), so the desktop app cannot
+-- read its pixels; OBS can, through the Game Capture hook the user already runs. Each ~0.5 s this script crops the same areas it
+-- builds the overlays from out of the Game Capture texture (a GPU render into a tiny texture, nothing is copied from or injected
+-- into the game) and writes their pixels to obs-sight.bin. The app does the matching, the countdown and the sounds.
+-- Format: "TSEYE1\n", "<unix time> <session> <count>\n", then per area "<w> <h>\n" + w*h*4 BGRA bytes.
+local find_base -- defined below, in the tick section
+local SIGHT_MAX_SIDE, SIGHT_PERIOD_NS = 512, 500000000
+local sight = {gfx = nil, ffi = nil, last = 0, failures = 0, session = string.format("%x", os.time()), written = false}
+
+local SIGHT_CDEF = [[
+typedef struct obs_source obs_source_t;
+typedef struct gs_texture gs_texture_t;
+typedef struct gs_texture_render gs_texrender_t;
+typedef struct gs_stage_surface gs_stagesurf_t;
+struct tse_vec4 { float x, y, z, w; } __attribute__((aligned(16)));
+void obs_enter_graphics(void);
+void obs_leave_graphics(void);
+obs_source_t *obs_get_source_by_name(const char *name);
+void obs_source_release(obs_source_t *source);
+uint32_t obs_source_get_width(obs_source_t *source);
+uint32_t obs_source_get_height(obs_source_t *source);
+void obs_source_inc_showing(obs_source_t *source);
+void obs_source_dec_showing(obs_source_t *source);
+void obs_source_video_render(obs_source_t *source);
+gs_texrender_t *gs_texrender_create(int format, int zsformat);
+void gs_texrender_destroy(gs_texrender_t *texrender);
+void gs_texrender_reset(gs_texrender_t *texrender);
+bool gs_texrender_begin(gs_texrender_t *texrender, uint32_t cx, uint32_t cy);
+void gs_texrender_end(gs_texrender_t *texrender);
+gs_texture_t *gs_texrender_get_texture(const gs_texrender_t *texrender);
+gs_stagesurf_t *gs_stagesurface_create(uint32_t width, uint32_t height, int color_format);
+void gs_stagesurface_destroy(gs_stagesurf_t *stagesurf);
+void gs_stage_texture(gs_stagesurf_t *dst, gs_texture_t *src);
+bool gs_stagesurface_map(gs_stagesurf_t *stagesurf, uint8_t **data, uint32_t *linesize);
+void gs_stagesurface_unmap(gs_stagesurf_t *stagesurf);
+void gs_clear(uint32_t clear_flags, const struct tse_vec4 *color, float depth, uint8_t stencil);
+void gs_ortho(float left, float right, float top, float bottom, float znear, float zfar);
+void gs_blend_state_push(void);
+void gs_blend_state_pop(void);
+void gs_blend_function(int src, int dest);
+]]
+
+local function sight_path()
+    local dir = cfg.path:match("^(.*)[/\\][^/\\]*$") or "."
+    return dir .. "\\obs-sight.bin"
+end
+
+-- Binds libobs through LuaJIT's FFI (OBS ships LuaJIT). Returns false, with one log line, when it is not possible.
+local function sight_init()
+    if sight.gfx ~= nil then return sight.gfx end
+    sight.gfx = false
+    local ok, ffi = pcall(require, "ffi")
+    if not ok then log("AVISO: sem FFI neste OBS; o reconhecimento do Collar e do Ring fica desligado."); return false end
+    pcall(ffi.cdef, SIGHT_CDEF)
+    local loaded, lib = pcall(ffi.load, "obs")
+    if not loaded then log("AVISO: nao foi possivel acessar a biblioteca do OBS; reconhecimento desligado."); return false end
+    sight.ffi, sight.gfx = ffi, lib
+    return lib
+end
+
+-- Renders the rectangle (left, top, w, h) of the source, in source pixels, into a w*h texture and returns its BGRA bytes.
+local function sight_grab(src, left, top, w, h)
+    local ffi, g = sight.ffi, sight.gfx
+    local bgra, zs = obs.GS_BGRA or 5, obs.GS_ZS_NONE or 0
+    local clear, one, zero = obs.GS_CLEAR_COLOR or 1, obs.GS_BLEND_ONE or 1, obs.GS_BLEND_ZERO or 0
+    local texrender, stage, bytes
+    g.obs_enter_graphics()
+    local ok, err = pcall(function()
+        texrender = g.gs_texrender_create(bgra, zs)
+        stage = g.gs_stagesurface_create(w, h, bgra)
+        if texrender == nil or stage == nil then error("sem textura") end
+        g.gs_texrender_reset(texrender)
+        if not g.gs_texrender_begin(texrender, w, h) then error("gs_texrender_begin") end
+        g.gs_clear(clear, ffi.new("struct tse_vec4"), 0, 0)
+        g.gs_ortho(left, left + w, top, top + h, -100, 100)
+        g.gs_blend_state_push()
+        g.gs_blend_function(one, zero)
+        g.obs_source_inc_showing(src)
+        g.obs_source_video_render(src)
+        g.obs_source_dec_showing(src)
+        g.gs_blend_state_pop()
+        g.gs_texrender_end(texrender)
+        g.gs_stage_texture(stage, g.gs_texrender_get_texture(texrender))
+        local data, linesize = ffi.new("uint8_t*[1]"), ffi.new("uint32_t[1]")
+        if g.gs_stagesurface_map(stage, data, linesize) then
+            local copy = ffi.new("uint8_t[?]", w * h * 4)
+            for y = 0, h - 1 do ffi.copy(copy + y * w * 4, data[0] + y * linesize[0], w * 4) end
+            g.gs_stagesurface_unmap(stage)
+            bytes = ffi.string(copy, w * h * 4)
+        end
+    end)
+    if stage ~= nil then g.gs_stagesurface_destroy(stage) end
+    if texrender ~= nil then g.gs_texrender_destroy(texrender) end
+    g.obs_leave_graphics()
+    if not ok then error(err, 0) end
+    return bytes
+end
+
+local function sight_write(areas)
+    local parts = {"TSEYE1\n", string.format("%d %s %d\n", os.time(), sight.session, #areas)}
+    for _, a in ipairs(areas) do
+        parts[#parts + 1] = string.format("%d %d\n", a.w, a.h)
+        parts[#parts + 1] = a.bytes
+    end
+    local path = sight_path()
+    local temp = path .. ".tmp"
+    local f = io.open(temp, "wb")
+    if not f then return end
+    f:write(table.concat(parts))
+    f:close()
+    os.remove(path)
+    os.rename(temp, path)
+    sight.written = true
+end
+
+local function sight_clear()
+    if sight.written then os.remove(sight_path()); sight.written = false end
+end
+
+local function sight_step()
+    local now = obs.os_gettime_ns()
+    if now - sight.last < SIGHT_PERIOD_NS then return end
+    sight.last = now
+    local g = sight_init()
+    if not g then cfg.detect = false; return end
+    -- Only while the app syncs the layout (it publishes the areas) and the Game Capture has a picture.
+    if not (packet and packet.enabled) then sight_clear(); return end
+    local name = find_base()
+    if name == "" then sight_clear(); return end
+    local src = g.obs_get_source_by_name(name)
+    if src == nil then sight_clear(); return end
+    local ok, err = pcall(function()
+        local sw, sh = tonumber(g.obs_source_get_width(src)), tonumber(g.obs_source_get_height(src))
+        if sw < 1 or sh < 1 then sight_clear(); return end
+        local areas = {}
+        for _, r in ipairs(packet.regions) do
+            local left = clamp(round(r.cropx * sw), 0, sw - 1)
+            local top = clamp(round(r.cropy * sh), 0, sh - 1)
+            local right = clamp(round((r.cropx + r.cropw) * sw), left + 1, sw)
+            local bottom = clamp(round((r.cropy + r.croph) * sh), top + 1, sh)
+            local w, h = right - left, bottom - top
+            if w <= SIGHT_MAX_SIDE and h <= SIGHT_MAX_SIDE then
+                local bytes = sight_grab(src, left, top, w, h)
+                if bytes then areas[#areas + 1] = {w = w, h = h, bytes = bytes} end
+            end
+        end
+        sight_write(areas)
+    end)
+    g.obs_source_release(src)
+    if ok then
+        sight.failures = 0
+    else
+        sight.failures = sight.failures + 1
+        log("AVISO: falha ao recortar as areas (" .. tostring(err) .. ")")
+        if sight.failures >= 3 then
+            cfg.detect = false
+            log("AVISO: reconhecimento do Collar e do Ring desligado depois de 3 falhas seguidas. Desmarque e marque a opcao no script para tentar de novo.")
+        end
+    end
+end
+
 -- ---------------------------------------------------------------- tick
-local function find_base()
+function find_base()
     if cfg.source ~= "" then return cfg.source end
     local sources = obs.obs_enum_sources()
     local found = ""
@@ -395,6 +557,10 @@ local function tick()
         packet = nil
     end
     apply()
+    if cfg.detect then
+        local ok, err = pcall(sight_step)
+        if not ok then cfg.detect = false; log("AVISO: reconhecimento do Collar e do Ring desligado (" .. tostring(err) .. ")") end
+    end
     if overrides_dirty and now - overrides_saved >= 1 then overrides_saved = now; save_overrides() end
 end
 
@@ -409,6 +575,7 @@ function script_defaults(settings)
     obs.obs_data_set_default_int(settings, "dy", 0)
     obs.obs_data_set_default_bool(settings, "guides", false)
     obs.obs_data_set_default_bool(settings, "manual", true)
+    obs.obs_data_set_default_bool(settings, "detect", true)
 end
 
 function script_properties()
@@ -434,6 +601,7 @@ function script_properties()
         save_overrides()
         return true
     end)
+    obs.obs_properties_add_bool(props, "detect", "Reconhecer Collar e Ring of Red Plasma (envia ao programa as imagens das areas, lidas da Captura de jogo)")
     obs.obs_properties_add_bool(props, "guides", "Mostrar guia da área do jogo (diagnóstico)")
     obs.obs_properties_add_int(props, "dx", "Ajuste fino X (pixels do canvas)", -500, 500, 1)
     obs.obs_properties_add_int(props, "dy", "Ajuste fino Y (pixels do canvas)", -500, 500, 1)
@@ -447,8 +615,11 @@ function script_update(settings)
     cfg.dy = obs.obs_data_get_int(settings, "dy")
     cfg.guides = obs.obs_data_get_bool(settings, "guides")
     cfg.manual = obs.obs_data_get_bool(settings, "manual")
+    cfg.detect = obs.obs_data_get_bool(settings, "detect")
+    sight.failures = 0
     if cfg.path == "" then cfg.path = default_path() end
     clear_all() -- next tick rebuilds with the new settings
+    if not cfg.detect then sight_clear() end
     if overrides_dirty then save_overrides() end
     load_overrides()
 end
@@ -477,6 +648,7 @@ end
 
 function script_unload()
     obs.timer_remove(tick)
+    sight_clear()
     obs.obs_frontend_remove_event_callback(on_event)
     clear_all()
     if overrides_dirty then save_overrides() end

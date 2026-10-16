@@ -37,6 +37,7 @@ public class AlertsDesktopTests
 
         public Rig(bool withArea = true)
         {
+            hasArea = withArea;
             if (withArea)
             {
                 var store = PresetStore.Open(PresetsPath);
@@ -50,18 +51,20 @@ public class AlertsDesktopTests
         {
             var main = new MainForm(PresetsPath,
                 prefer => new TibiaWindow { Handle = Source.Handle, Title = "Tibia - Teste", Character = "Teste" },
-                AlertsPath, Sound, Capture, () => Now);
+                AlertsPath, Sound, Sight, () => Now);
             DesktopHarness.ShowOffscreen(main);
             return main;
         }
 
-        private PixelBuffer Capture(IntPtr window)
+        // O que o script do OBS grava: a imagem de cada area do preset (aqui, uma area de 120x90 com o sprite em (6,6)); sem areas, lista vazia;
+        // 'ObsOff' simula o OBS fechado (sem imagens recentes).
+        public bool ObsOff;
+        private readonly bool hasArea;
+        private IReadOnlyList<PixelBuffer> Sight()
         {
-            var bounds = Native.ThumbnailBounds(window);
-            int width = bounds.Right - bounds.Left, height = bounds.Bottom - bounds.Top;
-            if (Showing == null) return Frames.Empty(width, height);
-            var area = new RegionSpec { X = .1, Y = .1, W = .3, H = .3 }.Crop(new Size(width, height));
-            return Frames.With(width, height, (Showing.Value, new Point(area.X + 6, area.Y + 6)));
+            if (ObsOff) return null;
+            if (!hasArea) return new PixelBuffer[0];
+            return new[] { Showing == null ? Frames.Empty(120, 90) : Frames.With(120, 90, (Showing.Value, new Point(6, 6))) };
         }
 
         // Duas leituras equivalem a um segundo de jogo para o monitor.
@@ -206,18 +209,19 @@ public class AlertsDesktopTests
     }
 
     [WinFormsFact]
-    public void WindowCapture_ReadsThePixelsOfARealWindow()
+    public void WithoutImagesFromObsTheRowsExplainAndTheCountKeepsRunning()
     {
-        using var source = new SourceWindow();
-        using var capture = new WindowCapture();
-        var expected = (Color.CornflowerBlue.B, Color.CornflowerBlue.G, Color.CornflowerBlue.R);
-        // Janelas de teste ficam fora da tela, onde o DWM nao compoe nada: so o modo classico do PrintWindow (WM_PRINT, flags 0) tem
-        // conteudo para ler. Aqui valem a copia dos pixels e a conversao; em producao o modo e o PW_RENDERFULLCONTENT (imagem do DWM).
-        System.Windows.Forms.Application.DoEvents();
-        var frame = capture.Grab(source.Handle, 0);
-        Assert.NotNull(frame);
-        int at = ((frame.Height / 2) * frame.Width + frame.Width / 2) * 4;
-        var center = (frame.Bgra[at], frame.Bgra[at + 1], frame.Bgra[at + 2]);
-        Assert.Equal(expected, center);
+        using var rig = new Rig();
+        rig.Showing = PlasmaItem.Ring;
+        rig.Tick(4);
+        Assert.StartsWith("Equipado", rig.Rows[PlasmaItem.Ring].Detail);
+
+        rig.ObsOff = true;
+        rig.Now += new TimeSpan(0, 28, 30);
+        rig.Tick();
+
+        Assert.Equal((PlasmaItem.Ring, AlertKind.Warning), rig.Sound.Played.Last()); // o aviso sai mesmo sem imagens
+        Assert.StartsWith("Equipado", rig.Rows[PlasmaItem.Ring].Detail);
+        Assert.Equal("Sem imagem do OBS: abra o OBS com o script", rig.Rows[PlasmaItem.Collar].Detail);
     }
 }

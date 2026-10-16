@@ -22,7 +22,6 @@ public class PlasmaMonitorTests
         public readonly FakeSound Sound = new FakeSound();
         public TimeSpan Now = TimeSpan.Zero;
         public readonly PlasmaMonitor Monitor;
-        public readonly Rectangle[] Areas = { new Rectangle(0, 0, 200, 150) };
         public readonly PixelBuffer WithCollar = Frames.With(200, 150, (PlasmaItem.Collar, new Point(20, 20)));
         public readonly PixelBuffer WithRing = Frames.With(200, 150, (PlasmaItem.Ring, new Point(20, 20)));
         public readonly PixelBuffer Empty = Frames.Empty();
@@ -37,7 +36,7 @@ public class PlasmaMonitorTests
         // Uma leitura a cada 500 ms, como o programa faz.
         public void Tick(PixelBuffer frame, int times = 1)
         {
-            for (int i = 0; i < times; i++) { Monitor.Tick(frame, Areas); Now += TimeSpan.FromMilliseconds(500); }
+            for (int i = 0; i < times; i++) { Monitor.Tick(new[] { frame }); Now += TimeSpan.FromMilliseconds(500); }
         }
 
         public void Advance(TimeSpan time) => Now += time;
@@ -102,9 +101,9 @@ public class PlasmaMonitorTests
         rig.Sound.Played.Clear();
 
         rig.Advance(new TimeSpan(0, 28, 30));
-        rig.Monitor.Tick(null, rig.Areas);
+        rig.Monitor.Tick(null);
 
-        Assert.Equal(PlasmaSource.NoCapture, rig.Monitor.Source);
+        Assert.Equal(PlasmaSource.NoObs, rig.Monitor.Source);
         Assert.Equal(new[] { (PlasmaItem.Ring, AlertKind.Warning) }, rig.Sound.Played);
     }
 
@@ -251,13 +250,13 @@ public class PlasmaMonitorTests
     {
         var rig = new Rig();
 
-        rig.Monitor.Tick(rig.Empty, new Rectangle[0]);
+        rig.Monitor.Tick(new PixelBuffer[0]);
         Assert.Equal(PlasmaSource.NoAreas, rig.Monitor.Source);
 
-        rig.Monitor.Tick(null, rig.Areas);
-        Assert.Equal(PlasmaSource.NoCapture, rig.Monitor.Source);
+        rig.Monitor.Tick(null);
+        Assert.Equal(PlasmaSource.NoObs, rig.Monitor.Source);
 
-        rig.Monitor.Tick(rig.Empty, rig.Areas);
+        rig.Monitor.Tick(new[] { rig.Empty });
         Assert.Equal(PlasmaSource.Reading, rig.Monitor.Source);
 
         rig.Monitor.Pause();

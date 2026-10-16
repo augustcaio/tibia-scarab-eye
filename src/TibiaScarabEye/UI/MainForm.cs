@@ -27,9 +27,8 @@ internal sealed class MainForm : FramelessForm {
     readonly PlasmaMonitor plasma;
     readonly AlertSettings alertSettings;
     readonly string alertsPath;
-    readonly WindowCapture windowCapture=new WindowCapture();
-    // Recebe a janela do jogo e devolve o quadro de pixels (null se não deu para ler); os testes trocam por um quadro fixo.
-    readonly Func<IntPtr,PixelBuffer> capture;
+    // As imagens das áreas recortadas que o script do OBS grava (null sem imagens recentes); os testes trocam por imagens fixas.
+    readonly Func<IReadOnlyList<PixelBuffer>> sight;
     readonly Timer alertTimer=new Timer();
     readonly ContextMenuStrip menu=new ContextMenuStrip();
     readonly ToolStripMenuItem duplicateItem, renameItem, deleteItem, exportOneItem, exportAllItem, importItem;
@@ -48,9 +47,9 @@ internal sealed class MainForm : FramelessForm {
 
     public MainForm() : this(PresetStore.DefaultPath,TibiaLocator.Find) { }
     // Os parâmetros opcionais existem para os testes isolarem o arquivo de alertas, o som, a leitura da tela e o relógio.
-    internal MainForm(string presetsPath,Func<IntPtr,TibiaWindow> locator,string alertsPath=null,IAlertSound sound=null,Func<IntPtr,PixelBuffer> capture=null,Func<TimeSpan> clock=null) {
+    internal MainForm(string presetsPath,Func<IntPtr,TibiaWindow> locator,string alertsPath=null,IAlertSound sound=null,Func<IReadOnlyList<PixelBuffer>> sight=null,Func<TimeSpan> clock=null) {
         this.locator=locator; store=PresetStore.Open(presetsPath);
-        this.alertsPath=alertsPath??AlertSettings.DefaultPath; alertSettings=AlertSettings.Load(this.alertsPath); this.capture=capture??windowCapture.Grab;
+        this.alertsPath=alertsPath??AlertSettings.DefaultPath; alertSettings=AlertSettings.Load(this.alertsPath); this.sight=sight??new ObsSightReader().Read;
         var watch=Stopwatch.StartNew();
         plasma=new PlasmaMonitor(sound??new FileAlertSound(),clock??(Func<TimeSpan>)delegate { return watch.Elapsed; },delegate(PlasmaItem item) { return SpriteTemplate.FromResource(PlasmaInfo.SpriteResource(item)); });
         Theme.Apply(this); Text="Tibia Scarab Eye"; BandTitle="Scarab Eye"; BandCaption="build "+BuildStamp();
@@ -199,26 +198,17 @@ internal sealed class MainForm : FramelessForm {
         try { alertSettings.Save(alertsPath); } catch(Exception ex) when(ex is System.IO.IOException || ex is UnauthorizedAccessException) { status.Text="Não foi possível salvar os alertas: "+ex.Message; }
         RefreshAlertRows();
     }
-    // As áreas do preset ativo, nas coordenadas do quadro da janela do jogo (a mesma origem das áreas recortadas e das miniaturas).
-    List<Rectangle> SpriteAreas() {
-        var areas=new List<Rectangle>();
-        Native.Rect window=Native.ThumbnailBounds(source);
-        var size=new Size(window.Right-window.Left,window.Bottom-window.Top);
-        if(size.Width<1 || size.Height<1) return areas;
-        foreach(var overlay in overlays) areas.Add(overlay.Spec.Crop(size));
-        return areas;
-    }
     void TickAlerts() {
-        if(!plasma.AnyEnabled) { plasma.Tick(null,new Rectangle[0]); RefreshAlertRows(); return; }
+        if(!plasma.AnyEnabled) { plasma.Tick(null); RefreshAlertRows(); return; }
         if(source==IntPtr.Zero || !Native.IsWindow(source)) { plasma.Pause(); RefreshAlertRows(); return; }
-        var areas=SpriteAreas();
-        // Minimizado ou sem área, não há o que ler; o estado fica como estava e as contagens seguem.
-        PixelBuffer frame=null;
-        if(areas.Count>0 && !Native.IsIconic(source)) {
-            try { frame=capture(source); }
-            catch(Exception ex) when(ex is ArgumentException || ex is InvalidOperationException || ex is System.Runtime.InteropServices.ExternalException) { frame=null; }
+        // As imagens vêm do OBS (o Windows entrega a janela do Tibia preta). Sem imagens recentes, ou com o jogo minimizado, o
+        // estado fica como estava e as contagens seguem.
+        IReadOnlyList<PixelBuffer> areas=null;
+        if(!Native.IsIconic(source)) {
+            try { areas=sight(); }
+            catch(Exception ex) when(ex is ArgumentException || ex is InvalidOperationException || ex is System.IO.IOException) { areas=null; }
         }
-        plasma.Tick(frame,areas);
+        plasma.Tick(areas);
         RefreshAlertRows();
     }
     static string Clock(TimeSpan time) { return ((int)time.TotalMinutes)+":"+time.Seconds.ToString("00"); }
@@ -229,7 +219,7 @@ internal sealed class MainForm : FramelessForm {
         switch(plasma.Source) {
             case PlasmaSource.NoTibia: return "Aguardando o Tibia";
             case PlasmaSource.NoAreas: return "Crie uma área sobre o slot do item";
-            case PlasmaSource.NoCapture: return "Sem leitura da tela do jogo";
+            case PlasmaSource.NoObs: return "Sem imagem do OBS: abra o OBS com o script";
             default: return "Não equipado";
         }
     }
@@ -467,5 +457,5 @@ internal sealed class MainForm : FramelessForm {
         Native.UnregisterHotKey(Handle,1); Native.UnregisterHotKey(Handle,2);
         base.OnFormClosing(e);
     }
-    protected override void Dispose(bool disposing) { if(disposing) { timer.Dispose(); alertTimer.Dispose(); autosave.Dispose(); tips.Dispose(); menu.Dispose(); windowCapture.Dispose(); } base.Dispose(disposing); }
+    protected override void Dispose(bool disposing) { if(disposing) { timer.Dispose(); alertTimer.Dispose(); autosave.Dispose(); tips.Dispose(); menu.Dispose(); } base.Dispose(disposing); }
 }

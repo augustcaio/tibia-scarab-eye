@@ -121,11 +121,20 @@ ALERTAS DE PLASMA
 Collar of Red Plasma e Ring of Red Plasma duram 30 minutos equipados. Na janela
 principal há uma linha para cada um, com o sprite e um interruptor ON/OFF (o
 estado fica salvo em %LOCALAPPDATA%\TibiaScarabEye\alerts.json).
-- Como o programa sabe que o item está equipado: ele procura o sprite do item
-  dentro das áreas recortadas do preset ativo. Crie, no editor, uma área
+- Como o programa sabe que o item está equipado: o cliente do Tibia não deixa o
+  Windows copiar a janela dele (a imagem sai preta), mas o OBS já enxerga o
+  jogo pela Captura de jogo. Com o OBS aberto, o script (opção "Reconhecer
+  Collar e Ring of Red Plasma", ligada por padrão) recorta, dessa mesma
+  imagem, as áreas do preset ativo e grava os pixels em
+  %LOCALAPPDATA%TibiaScarabEyeobs-sight.bin; o programa procura o sprite do
+  item ali. Nada é lido do jogo nem injetado nele. Crie, no editor, uma área
   cobrindo o slot do colar e outra o do anel (podem ser as mesmas áreas que
-  você já usa). Qualquer área do preset conta: um colar dentro de uma área que
-  cubra a mochila também seria reconhecido, então cubra só os slots.
+  você já usa) e clique em Sincronizar com OBS. Qualquer área do preset conta:
+  um colar dentro de uma área que cubra a mochila também seria reconhecido,
+  então cubra só os slots.
+- Sem o OBS aberto (ou sem a sincronização), a linha mostra "Sem imagem do
+  OBS: abra o OBS com o script" e nada é reconhecido; uma contagem que já
+  estava correndo continua e o aviso toca na hora certa.
 - Quando o sprite aparece em duas leituras seguidas (cerca de 1 segundo), toca
   o som de "equipado" e a contagem de 30:00 começa. Aos 1:30 restantes toca o
   som de aviso, uma vez, para você trocar o item e poupá-lo.
@@ -134,9 +143,9 @@ estado fica salvo em %LOCALAPPDATA%\TibiaScarabEye\alerts.json).
   o item está gasto, e o próximo sprite é um item novo (30:00). Se o palpite
   errar (por exemplo, você pôs outro item igual), clique com o botão direito
   na linha e escolha "Zerar contagem (item novo)".
-- Com o jogo minimizado o programa não enxerga a tela, mas a contagem continua e
-  o aviso toca na hora. Se o programa abrir com o item já equipado há tempo, ele
-  assume 30:00 a partir do momento em que o vê.
+- Com o jogo minimizado ou sem imagem do OBS, a contagem continua e o aviso toca
+  na hora. Se o programa abrir com o item já equipado há tempo, ele assume
+  30:00 a partir do momento em que o vê.
 - Sons (WAV PCM de 16 bits, já incluídos na pasta sounds ao lado do programa):
   collar-on, collar-warning, collar-off, ring-on, ring-warning, ring-off e
   plasmas-warning. O "off" toca quando o item sai do slot (trocado ou vencido).
@@ -148,9 +157,10 @@ estado fica salvo em %LOCALAPPDATA%\TibiaScarabEye\alerts.json).
   na hora: triângulo (equipado), exclamação (aviso de 1:30) e X (retirado). O
   clique direito na linha tem "Ouvir o aviso dos dois itens". Funcionam mesmo
   com o interruptor em OFF.
-- Limites: sprite em tamanho 1:1 (interface do Tibia sem escala) e jogo em
-  janela ou maximizado. Se a linha disser "Sem leitura da tela do jogo", o
-  Windows não entregou a imagem da janela.
+- Limites: sprite em tamanho 1:1 (interface do Tibia sem escala). Se o log do
+  OBS (Ajuda > Arquivos de log) trouxer "Tibia Scarab Eye: AVISO ... recortar as
+  areas" três vezes, o script desliga o reconhecimento até você desmarcar e
+  marcar de novo a opção nas propriedades do script.
 
 DETALHES E LIMITES
 O arquivo de sincronização fica em:
