@@ -20,6 +20,8 @@ public class MainFormTests
     {
         public readonly SourceWindow Source = new SourceWindow();
         public readonly string PresetsPath = Path.Combine(Path.GetTempPath(), "tibiascarabeye-main-" + Guid.NewGuid().ToString("N") + ".json");
+        // Os alertas (e o registro ao lado) tambem num arquivo temporario: o teste nunca escreve no registro real do usuario.
+        public readonly string AlertsPath = Path.Combine(Path.GetTempPath(), "tibiascarabeye-main-alerts-" + Guid.NewGuid().ToString("N") + ".json");
         public string Character = "Teste";
         public bool TibiaOpen = true;
         public readonly MainForm Main;
@@ -28,7 +30,7 @@ public class MainFormTests
         {
             TibiaOpen = tibiaOpen;
             if (seed != null) { var store = PresetStore.Open(PresetsPath); seed(store); store.Save(); }
-            Main = new MainForm(PresetsPath, prefer => TibiaOpen ? new TibiaWindow { Handle = Source.Handle, Title = "Tibia - " + Character, Character = Character } : null);
+            Main = new MainForm(PresetsPath, prefer => TibiaOpen ? new TibiaWindow { Handle = Source.Handle, Title = "Tibia - " + Character, Character = Character } : null, AlertsPath);
             DesktopHarness.ShowOffscreen(Main);
         }
 
@@ -38,6 +40,8 @@ public class MainFormTests
         public ComboBox Presets => DesktopHarness.Field<ComboBox>(Main, "presets");
         public PresetStore Reopen() => PresetStore.Open(PresetsPath);
         public void Detect() => DesktopHarness.Call(Main, "DetectTibia");
+        // O jogo so vale como fechado depois de sumir por algumas verificacoes seguidas.
+        public void Lose() { TibiaOpen = false; for (int i = 0; i < MainForm.MissesToDetach; i++) Detect(); }
 
         public RegionSpec Spec(string name, bool hidden = false) =>
             new RegionSpec { Name = name, X = .1, Y = .1, W = .2, H = .1, Left = DesktopHarness.Offscreen.X, Top = DesktopHarness.Offscreen.Y, Width = 120, Height = 40, Opacity = 100, Hidden = hidden };
@@ -47,6 +51,7 @@ public class MainFormTests
             Main.Dispose();
             Source.Dispose();
             if (File.Exists(PresetsPath)) File.Delete(PresetsPath);
+            foreach (var extra in new[] { AlertsPath, Path.ChangeExtension(AlertsPath, ".log") }) if (File.Exists(extra)) File.Delete(extra);
         }
     }
 
@@ -68,6 +73,7 @@ public class MainFormTests
         DesktopHarness.SetField(rig.Main, "visibilityHotkey", true);
         rig.Detect();
         DesktopHarness.Call(rig.Main, "UpdateStatus");
+        DesktopHarness.Call(rig.Main, "TickAlerts"); // as linhas de alerta mostram o estado depois da primeira leitura
 
         using var bitmap = DesktopHarness.RenderShaped(rig.Main);
         DesktopHarness.SaveArtifact(bitmap, "interface-preview.png");
@@ -82,8 +88,7 @@ public class MainFormTests
         Assert.Equal(LampState.Reading, rig.Lamp.State);
         Assert.Equal("Teste", rig.Lamp.Detail);
 
-        rig.TibiaOpen = false;
-        rig.Detect();
+        rig.Lose();
         Assert.Equal(LampState.Searching, rig.Lamp.State);
         Assert.Equal(IntPtr.Zero, DesktopHarness.Field<IntPtr>(rig.Main, "source"));
 
@@ -92,6 +97,22 @@ public class MainFormTests
         Assert.Equal(LampState.Reading, rig.Lamp.State);
         Assert.Equal("Outro", rig.Lamp.Detail);
         Assert.Equal(rig.Source.Handle, DesktopHarness.Field<IntPtr>(rig.Main, "source"));
+    }
+
+    [WinFormsFact]
+    public void ABriefLossOfTheTibiaWindowDoesNotDropTheAreasOrTheSync()
+    {
+        using var rig = new Rig(store => store.Add("Meu", "Teste", new[] { Region("A") }));
+        var areas = rig.Overlays.ToList();
+
+        rig.TibiaOpen = false;
+        for (int i = 0; i < MainForm.MissesToDetach - 1; i++) rig.Detect(); // some por menos que o limite
+        rig.TibiaOpen = true;
+        rig.Detect();
+
+        Assert.Equal(areas, rig.Overlays); // as mesmas overlays: nada foi desmontado
+        Assert.Equal(LampState.Reading, rig.Lamp.State);
+        Assert.NotEqual(IntPtr.Zero, DesktopHarness.Field<IntPtr>(rig.Main, "source"));
     }
 
     [WinFormsFact]
@@ -165,7 +186,7 @@ public class MainFormTests
     public void SavingWithoutTheTibia_DoesNotWipeThePreset()
     {
         using var rig = new Rig(store => store.Add("Meu", "Teste", new[] { Region("A") }));
-        rig.TibiaOpen = false; rig.Detect(); // o jogo fechou: as overlays saem, o preset fica
+        rig.Lose(); // o jogo fechou: as overlays saem, o preset fica
 
         DesktopHarness.Call(rig.Main, "SaveActive");
 

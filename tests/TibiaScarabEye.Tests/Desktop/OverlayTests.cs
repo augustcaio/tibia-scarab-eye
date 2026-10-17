@@ -124,7 +124,8 @@ public class OverlayTests
             }
 
             string presets = Path.Combine(Path.GetTempPath(), "tibiascarabeye-hotkey-" + Guid.NewGuid().ToString("N") + ".json");
-            using (var main = new MainForm(presets, prefer => new TibiaWindow { Handle = source.Handle, Title = "Tibia - Teste", Character = "Teste" }))
+            string alerts = Path.Combine(Path.GetTempPath(), "tibiascarabeye-hotkey-alerts-" + Guid.NewGuid().ToString("N") + ".json");
+            using (var main = new MainForm(presets, prefer => new TibiaWindow { Handle = source.Handle, Title = "Tibia - Teste", Character = "Teste" }, alerts))
             {
                 SetField(main, "source", source.Handle);
                 Field<List<Overlay>>(main, "overlays").Add(overlay);
